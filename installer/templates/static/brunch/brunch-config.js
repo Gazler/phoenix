@@ -62,9 +62,5 @@ exports.config = {
       "js/app.js": ["web/static/js/app"],
       "js\\app.js": ["web/static/js/app"]
     }
-  },
-
-  npm: {
-    enabled: true
   }
 };
