@@ -6,7 +6,8 @@ defmodule Phoenix.CodeReloader.Server do
   alias Phoenix.CodeReloader.Proxy
 
   def start_link() do
-    GenServer.start_link(__MODULE__, false, name: __MODULE__)
+    deps = Mix.Dep.Umbrella.loaded()
+    GenServer.start_link(__MODULE__, deps, name: __MODULE__)
   end
 
   def check_symlinks do
@@ -19,11 +20,11 @@ defmodule Phoenix.CodeReloader.Server do
 
   ## Callbacks
 
-  def init(false) do
-    {:ok, false}
+  def init(deps) do
+    {:ok, %{checked?: false, deps: deps}}
   end
 
-  def handle_call(:check_symlinks, _from, checked?) do
+  def handle_call(:check_symlinks, _from, %{checked?: checked?} = state) do
     if not checked? and Code.ensure_loaded?(Mix.Project) do
       build_path = Mix.Project.build_path()
       symlink = Path.join(Path.dirname(build_path), "__phoenix__")
@@ -39,7 +40,7 @@ defmodule Phoenix.CodeReloader.Server do
       end
     end
 
-    {:reply, :ok, true}
+    {:reply, :ok, %{state | checked?: true}}
   end
 
   def handle_call({:reload!, endpoint}, from, state) do
@@ -50,7 +51,7 @@ defmodule Phoenix.CodeReloader.Server do
     {res, out} =
       proxy_io(fn ->
         try do
-          mix_compile(Code.ensure_loaded(Mix.Task), compilers)
+          mix_compile(Code.ensure_loaded(Mix.Task), compilers, state.deps)
         catch
           :exit, {:shutdown, 1} ->
             :error
@@ -106,9 +107,9 @@ defmodule Phoenix.CodeReloader.Server do
     end
   end
 
-  defp mix_compile({:module, Mix.Task}, compilers) do
+  defp mix_compile({:module, Mix.Task}, compilers, deps) do
     if Mix.Project.umbrella? do
-      Enum.each Mix.Dep.Umbrella.loaded, fn dep ->
+      Enum.each deps, fn dep ->
         Mix.Dep.in_dependency(dep, fn _ ->
           mix_compile_unless_stale_config(compilers)
         end)
@@ -118,7 +119,7 @@ defmodule Phoenix.CodeReloader.Server do
       :ok
     end
   end
-  defp mix_compile({:error, _reason}, _) do
+  defp mix_compile({:error, _reason}, _, _) do
     raise "the Code Reloader is enabled but Mix is not available. If you want to " <>
           "use the Code Reloader in production or inside an escript, you must add " <>
           ":mix to your applications list. Otherwise, you must disable code reloading " <>
