@@ -32,9 +32,23 @@ defmodule Mix.Phoenix.Schema do
             context_app: nil,
             route_helper: nil
 
-  @valid_types [:integer, :float, :decimal, :boolean, :map, :string,
-                :array, :references, :text, :date, :time,
-                :naive_datetime, :utc_datetime, :uuid, :binary]
+  @valid_types [
+    :integer,
+    :float,
+    :decimal,
+    :boolean,
+    :map,
+    :string,
+    :array,
+    :references,
+    :text,
+    :date,
+    :time,
+    :naive_datetime,
+    :utc_datetime,
+    :uuid,
+    :binary
+  ]
 
   def valid_types, do: @valid_types
 
@@ -43,16 +57,16 @@ defmodule Mix.Phoenix.Schema do
   end
 
   def new(schema_name, schema_plural, cli_attrs, opts) do
-    ctx_app   = opts[:context_app] || Mix.Phoenix.context_app()
-    otp_app   = Mix.Phoenix.otp_app()
-    opts      = Keyword.merge(Application.get_env(otp_app, :generators, []), opts)
-    base      = Mix.Phoenix.context_base(ctx_app)
-    basename  = Phoenix.Naming.underscore(schema_name)
-    module    = Module.concat([base, schema_name])
-    repo      = opts[:repo] || Module.concat([base, "Repo"])
-    file      = Mix.Phoenix.context_lib_path(ctx_app, basename <> ".ex")
-    table     = opts[:table] || schema_plural
-    uniques   = uniques(cli_attrs)
+    ctx_app = opts[:context_app] || Mix.Phoenix.context_app()
+    otp_app = Mix.Phoenix.otp_app()
+    opts = Keyword.merge(Application.get_env(otp_app, :generators, []), opts)
+    base = Mix.Phoenix.context_base(ctx_app)
+    basename = Phoenix.Naming.underscore(schema_name)
+    module = Module.concat([base, schema_name])
+    repo = opts[:repo] || Module.concat([base, "Repo"])
+    file = Mix.Phoenix.context_lib_path(ctx_app, basename <> ".ex")
+    table = opts[:table] || schema_plural
+    uniques = uniques(cli_attrs)
     {assocs, attrs} = partition_attrs_and_assocs(module, attrs(cli_attrs))
     types = types(attrs)
     web_namespace = opts[:web]
@@ -65,8 +79,10 @@ defmodule Mix.Phoenix.Schema do
       |> Module.split()
       |> List.last()
       |> Phoenix.Naming.underscore()
+
     string_attr = string_attr(types)
     create_params = params(attrs, :create)
+
     default_params_key =
       case Enum.at(create_params, 0) do
         {key, _} -> key
@@ -105,7 +121,8 @@ defmodule Mix.Phoenix.Schema do
       route_helper: route_helper(web_path, singular),
       sample_id: sample_id(opts),
       context_app: ctx_app,
-      generate?: generate?}
+      generate?: generate?
+    }
   end
 
   @doc """
@@ -124,7 +141,7 @@ defmodule Mix.Phoenix.Schema do
   def uniques(attrs) do
     attrs
     |> Enum.filter(&String.ends_with?(&1, ":unique"))
-    |> Enum.map(& &1 |> String.split(":", parts: 2) |> hd |> String.to_atom)
+    |> Enum.map(&(&1 |> String.split(":", parts: 2) |> hd |> String.to_atom()))
   end
 
   @doc """
@@ -146,8 +163,8 @@ defmodule Mix.Phoenix.Schema do
   def params(attrs, action \\ :create) when action in [:create, :update] do
     attrs
     |> Enum.reject(fn
-        {_, {:references, _}} -> true
-        {_, _} -> false
+         {_, {:references, _}} -> true
+         {_, _} -> false
        end)
     |> Enum.into(%{}, fn {k, t} -> {k, type_to_default(k, t, action)} end)
   end
@@ -160,12 +177,14 @@ defmodule Mix.Phoenix.Schema do
     |> Map.fetch!(field)
     |> inspect_value(value)
   end
+
   defp inspect_value(:decimal, value), do: "Decimal.new(\"#{value}\")"
   defp inspect_value(:utc_datetime, value), do: "DateTime.from_naive!(~N[#{value}], \"Etc/UTC\")"
   defp inspect_value(_type, value), do: inspect(value)
 
   defp drop_unique(info) do
     prefix = byte_size(info) - 7
+
     case info do
       <<attr::size(prefix)-binary, ":unique">> -> attr
       _ -> info
@@ -174,59 +193,66 @@ defmodule Mix.Phoenix.Schema do
 
   defp list_to_attr([key]), do: {String.to_atom(key), :string}
   defp list_to_attr([key, value]), do: {String.to_atom(key), String.to_atom(value)}
+
   defp list_to_attr([key, comp, value]) do
     {String.to_atom(key), {String.to_atom(comp), String.to_atom(value)}}
   end
 
   defp type_to_default(key, t, :create) do
     case t do
-        {:array, _}     -> []
-        :integer        -> 42
-        :float          -> 120.5
-        :decimal        -> "120.5"
-        :boolean        -> true
-        :map            -> %{}
-        :text           -> "some #{key}"
-        :date           -> %Date{year: 2010, month: 4, day: 17}
-        :time           -> %Time{hour: 14, minute: 0, second: 0, microsecond: {0, 6}}
-        :uuid           -> "7488a646-e31f-11e4-aace-600308960662"
-        :utc_datetime   -> "2010-04-17 14:00:00.000000Z"
-        :naive_datetime -> ~N[2010-04-17 14:00:00.000000]
-        _               -> "some #{key}"
+      {:array, _} -> []
+      :integer -> 42
+      :float -> 120.5
+      :decimal -> "120.5"
+      :boolean -> true
+      :map -> %{}
+      :text -> "some #{key}"
+      :date -> %Date{year: 2010, month: 4, day: 17}
+      :time -> %Time{hour: 14, minute: 0, second: 0, microsecond: {0, 6}}
+      :uuid -> "7488a646-e31f-11e4-aace-600308960662"
+      :utc_datetime -> "2010-04-17 14:00:00.000000Z"
+      :naive_datetime -> ~N[2010-04-17 14:00:00.000000]
+      _ -> "some #{key}"
     end
   end
+
   defp type_to_default(key, t, :update) do
     case t do
-        {:array, _}     -> []
-        :integer        -> 43
-        :float          -> 456.7
-        :decimal        -> "456.7"
-        :boolean        -> false
-        :map            -> %{}
-        :text           -> "some updated #{key}"
-        :date           -> %Date{year: 2011, month: 5, day: 18}
-        :time           -> %Time{hour: 15, minute: 1, second: 1, microsecond: {0, 6}}
-        :uuid           -> "7488a646-e31f-11e4-aace-600308960668"
-        :utc_datetime   -> "2011-05-18 15:01:01.000000Z"
-        :naive_datetime -> ~N[2011-05-18 15:01:01.000000]
-        _               -> "some updated #{key}"
+      {:array, _} -> []
+      :integer -> 43
+      :float -> 456.7
+      :decimal -> "456.7"
+      :boolean -> false
+      :map -> %{}
+      :text -> "some updated #{key}"
+      :date -> %Date{year: 2011, month: 5, day: 18}
+      :time -> %Time{hour: 15, minute: 1, second: 1, microsecond: {0, 6}}
+      :uuid -> "7488a646-e31f-11e4-aace-600308960668"
+      :utc_datetime -> "2011-05-18 15:01:01.000000Z"
+      :naive_datetime -> ~N[2011-05-18 15:01:01.000000]
+      _ -> "some updated #{key}"
     end
   end
 
   defp validate_attr!({name, :datetime}), do: validate_attr!({name, :naive_datetime})
+
   defp validate_attr!({name, :array}) do
-    Mix.raise """
+    Mix.raise("""
     Phoenix generators expect the type of the array to be given to #{name}:array.
     For example:
 
         mix phx.gen.schema Post posts settings:array:string
-    """
+    """)
   end
+
   defp validate_attr!({_name, type} = attr) when type in @valid_types, do: attr
   defp validate_attr!({_name, {type, _}} = attr) when type in @valid_types, do: attr
+
   defp validate_attr!({_, type}) do
-    Mix.raise "Unknown type `#{inspect type}` given to generator. " <>
-              "The supported types are: #{@valid_types |> Enum.sort() |> Enum.join(", ")}"
+    Mix.raise(
+      "Unknown type `#{inspect(type)}` given to generator. " <>
+        "The supported types are: #{@valid_types |> Enum.sort() |> Enum.join(", ")}"
+    )
   end
 
   defp partition_attrs_and_assocs(schema_module, attrs) do
@@ -234,14 +260,17 @@ defmodule Mix.Phoenix.Schema do
       Enum.split_with(attrs, fn
         {_, {:references, _}} ->
           true
+
         {key, :references} ->
-          Mix.raise """
+          Mix.raise("""
           Phoenix generators expect the table to be given to #{key}:references.
           For example:
 
               mix phx.gen.schema Comment comments body:text post_id:references:posts
-          """
-        _ -> false
+          """)
+
+        _ ->
+          false
       end)
 
     assocs =
@@ -257,8 +286,8 @@ defmodule Mix.Phoenix.Schema do
 
   defp schema_defaults(attrs) do
     Enum.into(attrs, %{}, fn
-      {key, :boolean}  -> {key, ", default: false"}
-      {key, _}         -> {key, ""}
+      {key, :boolean} -> {key, ", default: false"}
+      {key, _} -> {key, ""}
     end)
   end
 
@@ -279,9 +308,10 @@ defmodule Mix.Phoenix.Schema do
 
   defp schema_type(:text), do: :string
   defp schema_type(:uuid), do: Ecto.UUID
+
   defp schema_type(val) do
     if Code.ensure_loaded?(Ecto.Type) and not Ecto.Type.primitive?(val) do
-      Mix.raise "Unknown type `#{val}` given to generator"
+      Mix.raise("Unknown type `#{val}` given to generator")
     else
       val
     end
@@ -294,15 +324,15 @@ defmodule Mix.Phoenix.Schema do
     (uniques ++ assocs)
     |> Enum.uniq_by(fn {key, _} -> key end)
     |> Enum.map(fn
-      {key, false} -> "create index(:#{table}, [:#{key}])"
-      {key, true}  -> "create unique_index(:#{table}, [:#{key}])"
-    end)
+         {key, false} -> "create index(:#{table}, [:#{key}])"
+         {key, true} -> "create unique_index(:#{table}, [:#{key}])"
+       end)
   end
 
   defp migration_defaults(attrs) do
     Enum.into(attrs, %{}, fn
-      {key, :boolean}  -> {key, ", default: false, null: false"}
-      {key, _}         -> {key, ""}
+      {key, :boolean} -> {key, ", default: false, null: false"}
+      {key, _} -> {key, ""}
     end)
   end
 

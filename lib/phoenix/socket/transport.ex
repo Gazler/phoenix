@@ -128,7 +128,7 @@ defmodule Phoenix.Socket.Transport do
   @doc """
   Provides a keyword list of default configuration for socket transports.
   """
-  @callback default_config() :: Keyword.t
+  @callback default_config() :: Keyword.t()
 
   @doc """
   Returns the Channel Transport protocol version.
@@ -150,52 +150,74 @@ defmodule Phoenix.Socket.Transport do
     case serializer_for_vsn(vsn, serializer_config) do
       {:ok, serializer} ->
         do_connect(vsn, endpoint, handler, transport_name, transport, serializer, params)
+
       {:error, reason} ->
         Logger.error(reason)
         :error
     end
   end
+
   defp serializer_for_vsn(vsn, serializer) when is_atom(serializer) do
     if Version.match?(vsn, "~> 1.0.0") do
       {:ok, serializer}
     else
-      {:error, "The client's requested channel transport version \"#{vsn}\" " <>
-               "does not match server's version requirements of \"~> 1.0.0\""}
+      {
+        :error,
+        "The client's requested channel transport version \"#{vsn}\" " <>
+          "does not match server's version requirements of \"~> 1.0.0\""
+      }
     end
   rescue
     Version.InvalidVersionError ->
-      {:error, "The client's requested channel transport version \"#{inspect vsn}\" " <>
-               "is invalid"}
+      {
+        :error,
+        "The client's requested channel transport version \"#{inspect(vsn)}\" " <> "is invalid"
+      }
   end
+
   defp serializer_for_vsn(vsn, serializers) when is_list(serializers) do
     serializers
     |> Enum.find(fn {_serializer, vsn_req} -> Version.match?(vsn, vsn_req) end)
     |> case do
-      {serializer, _vsn_req} -> {:ok, serializer}
-      nil ->
-        {:error, "The client's requested channel transport version \"#{vsn}\" " <>
-                 "does not match server's version requirements of #{inspect serializers}"}
-    end
+         {serializer, _vsn_req} ->
+           {:ok, serializer}
+
+         nil ->
+           {
+             :error,
+             "The client's requested channel transport version \"#{vsn}\" " <>
+               "does not match server's version requirements of #{inspect(serializers)}"
+           }
+       end
   end
 
   defp do_connect(vsn, endpoint, handler, transport_name, transport, serializer, params) do
-    socket = %Socket{endpoint: endpoint,
-                     transport: transport,
-                     transport_pid: self(),
-                     transport_name: transport_name,
-                     handler: handler,
-                     vsn: vsn,
-                     pubsub_server: endpoint.__pubsub_server__,
-                     serializer: serializer}
+    socket = %Socket{
+      endpoint: endpoint,
+      transport: transport,
+      transport_pid: self(),
+      transport_name: transport_name,
+      handler: handler,
+      vsn: vsn,
+      pubsub_server: endpoint.__pubsub_server__,
+      serializer: serializer
+    }
 
     case handler.connect(params, socket) do
       {:ok, socket} ->
         case handler.id(socket) do
-          nil                   -> {:ok, socket}
-          id when is_binary(id) -> {:ok, %Socket{socket | id: id}}
-          invalid               ->
-            Logger.error "#{inspect handler}.id/1 returned invalid identifier #{inspect invalid}. " <>
-                         "Expected nil or a string."
+          nil ->
+            {:ok, socket}
+
+          id when is_binary(id) ->
+            {:ok, %Socket{socket | id: id}}
+
+          invalid ->
+            Logger.error(
+              "#{inspect(handler)}.id/1 returned invalid identifier #{inspect(invalid)}. " <>
+                "Expected nil or a string."
+            )
+
             :error
         end
 
@@ -203,8 +225,11 @@ defmodule Phoenix.Socket.Transport do
         :error
 
       invalid ->
-        Logger.error "#{inspect handler}.connect/2 returned invalid value #{inspect invalid}. " <>
-                     "Expected {:ok, socket} or :error"
+        Logger.error(
+          "#{inspect(handler)}.connect/2 returned invalid value #{inspect(invalid)}. " <>
+            "Expected {:ok, socket} or :error"
+        )
+
         :error
     end
   end
@@ -242,7 +267,10 @@ defmodule Phoenix.Socket.Transport do
   def dispatch(msg, channels, socket)
 
   def dispatch(%{ref: ref, topic: "phoenix", event: "heartbeat"}, _channels, socket) do
-    {:reply, %Reply{join_ref: socket.join_ref, ref: ref, topic: "phoenix", status: :ok, payload: %{}}}
+    {
+      :reply,
+      %Reply{join_ref: socket.join_ref, ref: ref, topic: "phoenix", status: :ok, payload: %{}}
+    }
   end
 
   def dispatch(%Message{} = msg, channels, socket) do
@@ -253,12 +281,14 @@ defmodule Phoenix.Socket.Transport do
 
   @doc false
   def build_channel_socket(%Socket{} = socket, channel, topic, join_ref, opts) do
-    %Socket{socket |
-            topic: topic,
-            channel: channel,
-            join_ref: join_ref,
-            assigns: Map.merge(socket.assigns, opts[:assigns] || %{}),
-            private: channel.__socket__(:private)}
+    %Socket{
+      socket
+      | topic: topic,
+        channel: channel,
+        join_ref: join_ref,
+        assigns: Map.merge(socket.assigns, opts[:assigns] || %{}),
+        private: channel.__socket__(:private)
+    }
   end
 
   defp do_dispatch(nil, %{event: "phx_join", topic: topic} = msg, base_socket) do
@@ -268,21 +298,47 @@ defmodule Phoenix.Socket.Transport do
 
         case Phoenix.Channel.Server.join(socket, msg.payload) do
           {:ok, response, pid} ->
-            log socket, topic, fn -> "Replied #{topic} :ok" end
-            {:joined, pid, %Reply{join_ref: socket.join_ref, ref: msg.ref, topic: topic, status: :ok, payload: response}}
+            log(socket, topic, fn -> "Replied #{topic} :ok" end)
+
+            {
+              :joined,
+              pid,
+              %Reply{
+                join_ref: socket.join_ref,
+                ref: msg.ref,
+                topic: topic,
+                status: :ok,
+                payload: response
+              }
+            }
 
           {:error, reason} ->
-            log socket, topic, fn -> "Replied #{topic} :error" end
-            {:error, reason, %Reply{join_ref: socket.join_ref, ref: msg.ref, topic: topic, status: :error, payload: reason}}
+            log(socket, topic, fn -> "Replied #{topic} :error" end)
+
+            {
+              :error,
+              reason,
+              %Reply{
+                join_ref: socket.join_ref,
+                ref: msg.ref,
+                topic: topic,
+                status: :error,
+                payload: reason
+              }
+            }
         end
 
-      nil -> reply_ignore(msg, base_socket)
+      nil ->
+        reply_ignore(msg, base_socket)
     end
   end
 
   defp do_dispatch(pid, %{event: "phx_join"} = msg, socket) when is_pid(pid) do
-    Logger.debug "Duplicate channel join for topic \"#{msg.topic}\" in #{inspect(socket.handler)}. " <>
-                 "Closing existing channel for new join."
+    Logger.debug(
+      "Duplicate channel join for topic \"#{msg.topic}\" in #{inspect(socket.handler)}. " <>
+        "Closing existing channel for new join."
+    )
+
     :ok = Phoenix.Channel.Server.close(pid)
     do_dispatch(nil, msg, socket)
   end
@@ -297,13 +353,25 @@ defmodule Phoenix.Socket.Transport do
   end
 
   defp log(_, "phoenix" <> _, _func), do: :noop
-  defp log(%{ private: %{ log_join: false } }, _topic, _func), do: :noop
-  defp log(%{ private: %{ log_join: level } }, _topic, func), do: Logger.log(level, func)
+  defp log(%{private: %{log_join: false}}, _topic, _func), do: :noop
+  defp log(%{private: %{log_join: level}}, _topic, func), do: Logger.log(level, func)
 
   defp reply_ignore(msg, socket) do
-    Logger.warn fn -> "Ignoring unmatched topic \"#{msg.topic}\" in #{inspect(socket.handler)}" end
-    {:error, :unmatched_topic, %Reply{join_ref: socket.join_ref, ref: msg.ref, topic: msg.topic, status: :error,
-                                      payload: %{reason: "unmatched topic"}}}
+    Logger.warn(fn ->
+      "Ignoring unmatched topic \"#{msg.topic}\" in #{inspect(socket.handler)}"
+    end)
+
+    {
+      :error,
+      :unmatched_topic,
+      %Reply{
+        join_ref: socket.join_ref,
+        ref: msg.ref,
+        topic: msg.topic,
+        status: :error,
+        payload: %{reason: "unmatched topic"}
+      }
+    }
   end
 
   @doc """
@@ -316,7 +384,7 @@ defmodule Phoenix.Socket.Transport do
   # TODO v2: Remove 2-arity
   @doc false
   def on_exit_message(topic, reason) do
-    IO.warn "Phoenix.Transport.on_exit_message/2 is deprecated. Use on_exit_message/3 instead."
+    IO.warn("Phoenix.Transport.on_exit_message/2 is deprecated. Use on_exit_message/3 instead.")
     on_exit_message(topic, nil, reason)
   end
 
@@ -352,6 +420,7 @@ defmodule Phoenix.Socket.Transport do
           |> Keyword.put_new(:host, {endpoint, :host, []})
           |> Plug.SSL.init()
         end
+
       {:cache, opts}
     end)
   end
@@ -381,21 +450,22 @@ defmodule Phoenix.Socket.Transport do
   """
   def check_origin(conn, handler, endpoint, opts, sender \\ &Plug.Conn.send_resp/1)
 
-  def check_origin(%Plug.Conn{halted: true} = conn, _handler, _endpoint, _opts, _sender),
-    do: conn
+  def check_origin(%Plug.Conn{halted: true} = conn, _handler, _endpoint, _opts, _sender), do: conn
 
   def check_origin(conn, handler, endpoint, opts, sender) do
     import Plug.Conn
-    origin       = get_req_header(conn, "origin") |> List.first
+    origin = get_req_header(conn, "origin") |> List.first()
     check_origin = check_origin_config(handler, endpoint, opts)
 
     cond do
       is_nil(origin) or check_origin == false ->
         conn
+
       origin_allowed?(check_origin, URI.parse(origin), endpoint) ->
         conn
+
       true ->
-        Logger.error """
+        Logger.error("""
         Could not check origin for Phoenix.Socket transport.
 
         This happens when you are attempting a socket connection to
@@ -414,7 +484,8 @@ defmodule Phoenix.Socket.Transport do
 
                 check_origin: ["https://example.com",
                                "//another.com:888", "//other.com"]
-        """
+        """)
+
         resp(conn, :forbidden, "")
         |> sender.()
         |> halt()
@@ -427,9 +498,11 @@ defmodule Phoenix.Socket.Transport do
         case Keyword.get(opts, :check_origin, endpoint.config(:check_origin)) do
           origins when is_list(origins) ->
             Enum.map(origins, &parse_origin/1)
+
           boolean when is_boolean(boolean) ->
             boolean
         end
+
       {:cache, check_origin}
     end)
   end
@@ -437,19 +510,20 @@ defmodule Phoenix.Socket.Transport do
   defp parse_origin(origin) do
     case URI.parse(origin) do
       %{host: nil} ->
-        raise ArgumentError,
-          "invalid check_origin: #{inspect origin}. Expected an origin with a
+        raise ArgumentError, "invalid check_origin: #{inspect(origin)}. Expected an origin with a
           host that is parsable by URI.parse/1. For example:
           [\"https://example.com\", \"//another.com:888\", \"//other.com\"]"
+
       %{scheme: scheme, port: port, host: host} ->
         {scheme, host, port}
     end
   end
 
-  defp origin_allowed?(_check_origin, %URI{host: nil}, _endpoint),
-    do: true
+  defp origin_allowed?(_check_origin, %URI{host: nil}, _endpoint), do: true
+
   defp origin_allowed?(true, uri, endpoint),
     do: compare?(uri.host, host_to_binary(endpoint.config(:url)[:host]))
+
   defp origin_allowed?(check_origin, uri, _endpoint) when is_list(check_origin),
     do: origin_allowed?(uri, check_origin)
 
@@ -457,9 +531,8 @@ defmodule Phoenix.Socket.Transport do
     %{scheme: origin_scheme, host: origin_host, port: origin_port} = uri
 
     Enum.any?(allowed_origins, fn {allowed_scheme, allowed_host, allowed_port} ->
-      compare?(origin_scheme, allowed_scheme) and
-      compare?(origin_port, allowed_port) and
-      compare_host?(origin_host, allowed_host)
+      compare?(origin_scheme, allowed_scheme) and compare?(origin_port, allowed_port) and
+        compare_host?(origin_host, allowed_host)
     end)
   end
 
@@ -467,12 +540,12 @@ defmodule Phoenix.Socket.Transport do
     is_nil(allowed_val) or request_val == allowed_val
   end
 
-  defp compare_host?(_request_host, nil),
-    do: true
+  defp compare_host?(_request_host, nil), do: true
+
   defp compare_host?(request_host, "*." <> allowed_host),
     do: String.ends_with?(request_host, allowed_host)
-  defp compare_host?(request_host, allowed_host),
-    do: request_host == allowed_host
+
+  defp compare_host?(request_host, allowed_host), do: request_host == allowed_host
 
   # TODO v1.4: Deprecate {:system, env_var}
   defp host_to_binary({:system, env_var}), do: host_to_binary(System.get_env(env_var))

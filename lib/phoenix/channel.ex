@@ -264,32 +264,37 @@ defmodule Phoenix.Channel do
   alias Phoenix.Channel.Server
 
   @type reply :: status :: atom | {status :: atom, response :: map}
-  @type socket_ref :: {transport_pid :: Pid, serializer :: module,
-                       topic :: binary, ref :: binary, join_ref :: binary}
+  @type socket_ref :: {
+          transport_pid :: Pid,
+          serializer :: module,
+          topic :: binary,
+          ref :: binary,
+          join_ref :: binary
+        }
 
+  @callback code_change(old_vsn, Socket.t(), extra :: term) ::
+              {:ok, Socket.t()}
+              | {:error, reason :: term}
+            when old_vsn: term | {:down, term}
 
-  @callback code_change(old_vsn, Socket.t, extra :: term) ::
-              {:ok, Socket.t} |
-              {:error, reason :: term} when old_vsn: term | {:down, term}
+  @callback join(topic :: binary, auth_msg :: map, Socket.t()) ::
+              {:ok, Socket.t()}
+              | {:ok, map, Socket.t()}
+              | {:error, map}
 
-  @callback join(topic :: binary, auth_msg :: map, Socket.t) ::
-              {:ok, Socket.t} |
-              {:ok, map, Socket.t} |
-              {:error, map}
+  @callback handle_in(event :: String.t(), msg :: map, Socket.t()) ::
+              {:noreply, Socket.t()}
+              | {:reply, reply, Socket.t()}
+              | {:stop, reason :: term, Socket.t()}
+              | {:stop, reason :: term, reply, Socket.t()}
 
-  @callback handle_in(event :: String.t, msg :: map, Socket.t) ::
-              {:noreply, Socket.t} |
-              {:reply, reply, Socket.t} |
-              {:stop, reason :: term, Socket.t} |
-              {:stop, reason :: term, reply, Socket.t}
+  @callback handle_info(term, Socket.t()) ::
+              {:noreply, Socket.t()}
+              | {:stop, reason :: term, Socket.t()}
 
-  @callback handle_info(term, Socket.t) ::
-              {:noreply, Socket.t} |
-              {:stop, reason :: term, Socket.t}
-
-  @callback terminate(msg :: map, Socket.t) ::
-              {:shutdown, :left | :closed} |
-              term
+  @callback terminate(msg :: map, Socket.t()) ::
+              {:shutdown, :left | :closed}
+              | term
 
   defmacro __using__(opts \\ []) do
     quote do
@@ -305,8 +310,7 @@ defmodule Phoenix.Channel do
       import Phoenix.Socket, only: [assign: 3]
 
       def __socket__(:private) do
-        %{log_join: @phoenix_log_join,
-          log_handle_in: @phoenix_log_handle_in}
+        %{log_join: @phoenix_log_join, log_handle_in: @phoenix_log_handle_in}
       end
 
       def code_change(_old, socket, _extra), do: {:ok, socket}
@@ -368,14 +372,16 @@ defmodule Phoenix.Channel do
 
   @doc false
   def __on_definition__(env, :def, :handle_out, [event, _payload, _socket], _, _)
-    when is_binary(event) do
-
+      when is_binary(event) do
     unless event in Module.get_attribute(env.module, :phoenix_intercepts) do
-      IO.write "#{Path.relative_to(env.file, File.cwd!)}:#{env.line}: [warning] " <>
-               "An intercept for event \"#{event}\" has not yet been defined in #{env.module}.handle_out/3. " <>
-               "Add \"#{event}\" to your list of intercepted events with intercept/1"
+      IO.write(
+        "#{Path.relative_to(env.file, File.cwd!())}:#{env.line}: [warning] " <>
+          "An intercept for event \"#{event}\" has not yet been defined in #{env.module}.handle_out/3. " <>
+          "Add \"#{event}\" to your list of intercepted events with intercept/1"
+      )
     end
   end
+
   def __on_definition__(_env, _kind, _name, _args, _guards, _body) do
   end
 
@@ -392,7 +398,7 @@ defmodule Phoenix.Channel do
   """
   def broadcast(socket, event, message) do
     %{pubsub_server: pubsub_server, topic: topic} = assert_joined!(socket)
-    Server.broadcast pubsub_server, topic, event, message
+    Server.broadcast(pubsub_server, topic, event, message)
   end
 
   @doc """
@@ -400,7 +406,7 @@ defmodule Phoenix.Channel do
   """
   def broadcast!(socket, event, message) do
     %{pubsub_server: pubsub_server, topic: topic} = assert_joined!(socket)
-    Server.broadcast! pubsub_server, topic, event, message
+    Server.broadcast!(pubsub_server, topic, event, message)
   end
 
   @doc """
@@ -416,16 +422,20 @@ defmodule Phoenix.Channel do
 
   """
   def broadcast_from(socket, event, message) do
-    %{pubsub_server: pubsub_server, topic: topic, channel_pid: channel_pid} = assert_joined!(socket)
-    Server.broadcast_from pubsub_server, channel_pid, topic, event, message
+    %{pubsub_server: pubsub_server, topic: topic, channel_pid: channel_pid} =
+      assert_joined!(socket)
+
+    Server.broadcast_from(pubsub_server, channel_pid, topic, event, message)
   end
 
   @doc """
   Same as `broadcast_from/3`, but raises if broadcast fails.
   """
   def broadcast_from!(socket, event, message) do
-    %{pubsub_server: pubsub_server, topic: topic, channel_pid: channel_pid} = assert_joined!(socket)
-    Server.broadcast_from! pubsub_server, channel_pid, topic, event, message
+    %{pubsub_server: pubsub_server, topic: topic, channel_pid: channel_pid} =
+      assert_joined!(socket)
+
+    Server.broadcast_from!(pubsub_server, channel_pid, topic, event, message)
   end
 
   @doc """
@@ -482,10 +492,11 @@ defmodule Phoenix.Channel do
 
   See `reply/2` for example usage.
   """
-  @spec socket_ref(Socket.t) :: socket_ref
+  @spec socket_ref(Socket.t()) :: socket_ref
   def socket_ref(%Socket{joined: true, ref: ref} = socket) when not is_nil(ref) do
     {socket.transport_pid, socket.serializer, socket.topic, ref, socket.join_ref}
   end
+
   def socket_ref(_socket) do
     raise ArgumentError, """
     Socket refs can only be generated for a socket that has joined with a push ref

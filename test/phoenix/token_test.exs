@@ -34,10 +34,8 @@ defmodule Phoenix.TokenTest do
   test "fails on invalid token" do
     token = Token.sign(TokenEndpoint, "id", 1)
 
-    assert Token.verify(TokenEndpoint, "id", "garbage") ==
-           {:error, :invalid}
-    assert Token.verify(TokenEndpoint, "not_id", token) ==
-           {:error, :invalid}
+    assert Token.verify(TokenEndpoint, "id", "garbage") == {:error, :invalid}
+    assert Token.verify(TokenEndpoint, "not_id", token) == {:error, :invalid}
   end
 
   test "supports max age in seconds" do
@@ -54,7 +52,7 @@ defmodule Phoenix.TokenTest do
   end
 
   test "supports signed_at in seconds" do
-    seconds_in_day = 24*60*60
+    seconds_in_day = 24 * 60 * 60
     day_ago_seconds = System.system_time(:seconds) - seconds_in_day
     token = Token.sign(conn(), "id", 1, signed_at: day_ago_seconds)
     assert Token.verify(conn(), "id", token, max_age: seconds_in_day + 1) == {:ok, 1}
@@ -81,7 +79,18 @@ defmodule Phoenix.TokenTest do
 
   test "key defaults" do
     signed1 = Token.sign(conn(), "id", 1, signed_at: 0)
-    signed2 = Token.sign(conn(), "id", 1, signed_at: 0, key_length: 32, key_digest: :sha256, key_iterations: 1000)
+
+    signed2 =
+      Token.sign(
+        conn(),
+        "id",
+        1,
+        signed_at: 0,
+        key_length: 32,
+        key_digest: :sha256,
+        key_iterations: 1000
+      )
+
     assert signed1 == signed2
   end
 

@@ -7,41 +7,37 @@ defmodule Phoenix.TemplateTest do
   @templates Path.expand("../fixtures/templates", __DIR__)
 
   test "engines/0" do
-    assert is_map Template.engines
+    assert is_map(Template.engines())
   end
 
   test "template_path_to_name/2" do
     path = "/var/www/templates/admin/users/show.html.eex"
     root = "/var/www/templates"
-    assert Template.template_path_to_name(path, root) ==
-           "admin/users/show.html"
+    assert Template.template_path_to_name(path, root) == "admin/users/show.html"
 
     path = "/var/www/templates/users/show.html.eex"
     root = "/var/www/templates"
-    assert Template.template_path_to_name(path, root) ==
-           "users/show.html"
+    assert Template.template_path_to_name(path, root) == "users/show.html"
 
     path = "/var/www/templates/home.html.eex"
     root = "/var/www/templates"
-    assert Template.template_path_to_name(path, root) ==
-           "home.html"
+    assert Template.template_path_to_name(path, root) == "home.html"
 
     path = "/var/www/templates/home.html.haml"
     root = "/var/www/templates"
-    assert Template.template_path_to_name(path, root) ==
-           "home.html"
+    assert Template.template_path_to_name(path, root) == "home.html"
   end
 
   test "find_all/1 finds all templates in the given root" do
-    templates = Template.find_all @templates
+    templates = Template.find_all(@templates)
     assert Path.join(@templates, "show.html.eex") in templates
 
-    templates = Template.find_all Path.expand("../ssl", @templates)
+    templates = Template.find_all(Path.expand("../ssl", @templates))
     assert templates == []
   end
 
   test "hash/1 returns the hash for the given root" do
-    assert is_binary Template.hash(@templates)
+    assert is_binary(Template.hash(@templates))
   end
 
   test "format_encoder/1 returns the formatter for a given template" do
@@ -61,33 +57,39 @@ defmodule Phoenix.TemplateTest do
   end
 
   test "render regular function definitions" do
-    assert View.render("user.json", name: "eric") ==
-           %{id: 123, name: "eric"}
+    assert View.render("user.json", name: "eric") == %{id: 123, name: "eric"}
   end
 
   test "forces template name to be a string" do
-    assert_raise ArgumentError, "render/2 expects template to be a string, got: 'user.json'", fn ->
-      View.render('user.json', name: "eric")
-    end
+    assert_raise ArgumentError,
+                 "render/2 expects template to be a string, got: 'user.json'",
+                 fn ->
+                   View.render('user.json', name: "eric")
+                 end
   end
 
   test "render eex templates sanitizes against xss by default" do
     assert View.render("show.html", message: "") ==
-           {:safe, [[["" | "<div>Show! "] | ""] | "</div>\n"]}
+             {:safe, [[["" | "<div>Show! "] | ""] | "</div>\n"]}
 
     assert View.render("show.html", message: "<script>alert('xss');</script>") ==
-           {:safe, [[["" | "<div>Show! "] | "&lt;script&gt;alert(&#39;xss&#39;);&lt;/script&gt;"]
-                    | "</div>\n"]}
+             {
+               :safe,
+               [
+                 [["" | "<div>Show! "] | "&lt;script&gt;alert(&#39;xss&#39;);&lt;/script&gt;"]
+                 | "</div>\n"
+               ]
+             }
   end
 
   test "render eex templates allows raw data to be injected" do
     assert View.render("safe.html", message: "<script>alert('xss');</script>") ==
-           {:safe, [[["" | "Raw "] | "<script>alert('xss');</script>"] | "\n"]}
+             {:safe, [[["" | "Raw "] | "<script>alert('xss');</script>"] | "\n"]}
   end
 
   test "compiles templates from path" do
     assert View.render("show.html", message: "hello!") ==
-           {:safe, [[["" | "<div>Show! "] | "hello!"] | "</div>\n"]}
+             {:safe, [[["" | "<div>Show! "] | "hello!"] | "</div>\n"]}
   end
 
   test "compiler adds catch-all render/2 that raises UndefinedError" do
@@ -113,16 +115,18 @@ defmodule Phoenix.TemplateTest do
       use Phoenix.Template, root: Path.join(__DIR__, "not-exists")
 
       def template_not_found(_template, assigns) do
-        render "this-does-not-exist.html", assigns
+        render("this-does-not-exist.html", assigns)
       end
     end
 
-    assert_raise Phoenix.Template.UndefinedError, ~r/Could not render "this-does-not-exist.html".*/, fn ->
-      InfiniteView.render("this-does-not-exist.html")
-    end
+    assert_raise Phoenix.Template.UndefinedError,
+                 ~r/Could not render "this-does-not-exist.html".*/,
+                 fn ->
+                   InfiniteView.render("this-does-not-exist.html")
+                 end
   end
 
   test "generates __phoenix_recompile__? function" do
-    refute View.__phoenix_recompile__?
+    refute View.__phoenix_recompile__?()
   end
 end

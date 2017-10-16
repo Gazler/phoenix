@@ -31,28 +31,32 @@ defmodule Phoenix.MissingParamError do
 
   defexception [:message, plug_status: 400]
 
-  def exception([key: value]) do
-    msg = "expected key #{inspect value} to be present in params, " <>
-          "please send the expected key or adapt your scrub_params/2 call"
+  def exception(key: value) do
+    msg =
+      "expected key #{inspect(value)} to be present in params, " <>
+        "please send the expected key or adapt your scrub_params/2 call"
+
     %Phoenix.MissingParamError{message: msg}
   end
 end
 
 defmodule Phoenix.ActionClauseError do
-  defexception [message: nil, plug_status: 400]
+  defexception message: nil, plug_status: 400
 
   def exception(opts) do
     controller = Keyword.fetch!(opts, :controller)
     action = Keyword.fetch!(opts, :action)
     params = Keyword.fetch!(opts, :params)
+
     msg = """
-    could not find a matching #{inspect controller}.#{action} clause
+    could not find a matching #{inspect(controller)}.#{action} clause
     to process request. This typically happens when there is a
     parameter mismatch but may also happen when any of the other
     action arguments do not match. The request parameters are:
 
-      #{inspect params}
+      #{inspect(params)}
     """
+
     %Phoenix.ActionClauseError{message: msg}
   end
 end

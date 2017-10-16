@@ -36,18 +36,19 @@ defmodule Phoenix.Router.ResourcesTest do
 
     resources "/users", UserController, alias: Api do
       resources "/comments", CommentController do
-        get "/special", CommentController, :special
+        get("/special", CommentController, :special)
       end
-      resources "/files", FileController, except: [:delete]
+
+      resources("/files", FileController, except: [:delete])
     end
 
-    resources "/members", UserController, only: [:show, :new, :delete]
+    resources("/members", UserController, only: [:show, :new, :delete])
 
-    resources "/files", Api.FileController, only: [:index]
+    resources("/files", Api.FileController, only: [:index])
 
     resources "/admin", UserController, param: "slug", name: "admin", only: [:show], alias: Api do
-      resources "/comments", CommentController, param: "key", name: "post", except: [:delete]
-      resources "/files", FileController, only: [:show, :index, :new]
+      resources("/comments", CommentController, param: "key", name: "post", except: [:delete])
+      resources("/files", FileController, only: [:show, :index, :new])
     end
   end
 
@@ -244,16 +245,16 @@ defmodule Phoenix.Router.ResourcesTest do
     assert conn.status == 200
     assert conn.params["slug"] == "foo"
     assert conn.resp_body == "show users"
-    assert Router.Helpers.admin_path(conn, :show, "foo") ==
-           "/admin/foo"
+    assert Router.Helpers.admin_path(conn, :show, "foo") == "/admin/foo"
 
     conn = call(Router, :get, "admin/bar/comments/the_key")
     assert conn.status == 200
     assert conn.params["admin_slug"] == "bar"
     assert conn.params["key"] == "the_key"
     assert conn.resp_body == "show comments"
+
     assert Router.Helpers.admin_post_path(conn, :show, "bar", "the_key") ==
-           "/admin/bar/comments/the_key"
+             "/admin/bar/comments/the_key"
   end
 
   test "resources with :only sets proper match order for :show and :new" do

@@ -31,11 +31,15 @@ defmodule Phoenix.CodeReloader.Server do
       case File.ln_s(build_path, symlink) do
         :ok ->
           File.rm(symlink)
+
         {:error, :eexist} ->
           File.rm(symlink)
+
         {:error, _} ->
-          Logger.warn "Phoenix is unable to create symlinks. Phoenix' code reloader will run " <>
-                      "considerably faster if symlinks are allowed." <> os_symlink(:os.type)
+          Logger.warn(
+            "Phoenix is unable to create symlinks. Phoenix' code reloader will run " <>
+              "considerably faster if symlinks are allowed." <> os_symlink(:os.type())
+          )
       end
     end
 
@@ -45,7 +49,7 @@ defmodule Phoenix.CodeReloader.Server do
   def handle_call({:reload!, endpoint}, from, state) do
     compilers = endpoint.config(:reloadable_compilers)
     backup = load_backup(endpoint)
-    froms  = all_waiting([from], endpoint)
+    froms = all_waiting([from], endpoint)
 
     {res, out} =
       proxy_io(fn ->
@@ -54,8 +58,9 @@ defmodule Phoenix.CodeReloader.Server do
         catch
           :exit, {:shutdown, 1} ->
             :error
+
           kind, reason ->
-            IO.puts Exception.format(kind, reason, System.stacktrace)
+            IO.puts(Exception.format(kind, reason, System.stacktrace()))
             :error
         end
       end)
@@ -64,6 +69,7 @@ defmodule Phoenix.CodeReloader.Server do
       case res do
         :ok ->
           :ok
+
         :error ->
           write_backup(backup)
           {:error, out}
@@ -79,20 +85,22 @@ defmodule Phoenix.CodeReloader.Server do
 
   defp os_symlink({:win32, _}),
     do: " On Windows, such can be done by starting the shell with \"Run as Administrator\"."
-  defp os_symlink(_),
-    do: ""
+
+  defp os_symlink(_), do: ""
 
   defp load_backup(mod) do
     mod
     |> :code.which()
     |> read_backup()
   end
+
   defp read_backup(path) when is_list(path) do
     case File.read(path) do
       {:ok, binary} -> {:ok, path, binary}
       _ -> :error
     end
   end
+
   defp read_backup(_path), do: :error
 
   defp write_backup({:ok, path, file}), do: File.write!(path, file)
@@ -110,44 +118,46 @@ defmodule Phoenix.CodeReloader.Server do
   # and just use loaded. apply/3 is used to prevent a compilation
   # warning.
   defp mix_compile({:module, Mix.Task}, compilers) do
-    if Mix.Project.umbrella? do
-      Enum.each Mix.Dep.Umbrella.cached, fn dep ->
+    if Mix.Project.umbrella?() do
+      Enum.each(Mix.Dep.Umbrella.cached(), fn dep ->
         Mix.Dep.in_dependency(dep, fn _ ->
           mix_compile_unless_stale_config(compilers)
         end)
-      end
+      end)
     else
       mix_compile_unless_stale_config(compilers)
       :ok
     end
   end
+
   defp mix_compile({:error, _reason}, _) do
     raise "the Code Reloader is enabled but Mix is not available. If you want to " <>
-          "use the Code Reloader in production or inside an escript, you must add " <>
-          ":mix to your applications list. Otherwise, you must disable code reloading " <>
-          "in such environments"
+            "use the Code Reloader in production or inside an escript, you must add " <>
+            ":mix to your applications list. Otherwise, you must disable code reloading " <>
+            "in such environments"
   end
 
   defp mix_compile_unless_stale_config(compilers) do
-    manifests = Mix.Tasks.Compile.Elixir.manifests
-    configs   = Mix.Project.config_files
+    manifests = Mix.Tasks.Compile.Elixir.manifests()
+    configs = Mix.Project.config_files()
 
     case Mix.Utils.extract_stale(configs, manifests) do
       [] ->
         mix_compile(compilers)
+
       files ->
         raise """
-        could not compile application: #{Mix.Project.config[:app]}.
+        could not compile application: #{Mix.Project.config()[:app]}.
 
         You must restart your server after changing the following config or lib files:
 
           * #{Enum.map_join(files, "\n  * ", &Path.relative_to_cwd/1)}
         """
-     end
-   end
+    end
+  end
 
   defp mix_compile(compilers) do
-    all = Mix.Project.config[:compilers] || Mix.compilers
+    all = Mix.Project.config()[:compilers] || Mix.compilers()
 
     compilers =
       for compiler <- compilers, compiler in all do
@@ -157,7 +167,7 @@ defmodule Phoenix.CodeReloader.Server do
 
     # We call build_structure mostly for Windows so new
     # assets in priv are copied to the build directory.
-    Mix.Project.build_structure
+    Mix.Project.build_structure()
     res = Enum.map(compilers, &Mix.Task.run("compile.#{&1}", []))
 
     if :ok in res && consolidate_protocols?() do
@@ -169,11 +179,11 @@ defmodule Phoenix.CodeReloader.Server do
   end
 
   defp consolidate_protocols? do
-    Mix.Project.config[:consolidate_protocols]
+    Mix.Project.config()[:consolidate_protocols]
   end
 
   defp proxy_io(fun) do
-    original_gl = Process.group_leader
+    original_gl = Process.group_leader()
     {:ok, proxy_gl} = Proxy.start()
     Process.group_leader(self(), proxy_gl)
 

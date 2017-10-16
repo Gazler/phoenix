@@ -25,10 +25,17 @@ defmodule Phoenix.Transports.V2.LongPollSerializer do
   def encode!(msg) do
     {:socket_push, :text, msg |> to_list() |> Poison.encode!()}
   end
+
   defp to_list(%Reply{} = reply) do
-    [reply.join_ref, reply.ref, reply.topic, "phx_reply",
-     %{status: reply.status, response: reply.payload}]
+    [
+      reply.join_ref,
+      reply.ref,
+      reply.topic,
+      "phx_reply",
+      %{status: reply.status, response: reply.payload}
+    ]
   end
+
   defp to_list(%Message{} = msg) do
     [msg.join_ref, msg.ref, msg.topic, msg.event, msg.payload]
   end
@@ -44,7 +51,7 @@ defmodule Phoenix.Transports.V2.LongPollSerializer do
       event: event,
       payload: payload,
       ref: ref,
-      join_ref: join_ref,
+      join_ref: join_ref
     }
   end
 end

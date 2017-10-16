@@ -17,57 +17,57 @@ defmodule Phoenix.Router.ScopedRoutingTest do
     use Phoenix.Router
 
     scope "/admin", host: "baz." do
-      get "/users/:id", Api.V1.UserController, :baz_host
+      get("/users/:id", Api.V1.UserController, :baz_host)
     end
 
     scope host: "foobar.com" do
       scope "/admin" do
-        get "/users/:id", Api.V1.UserController, :foo_host
+        get("/users/:id", Api.V1.UserController, :foo_host)
       end
     end
 
     scope "/admin" do
-      get "/users/:id", Api.V1.UserController, :show
+      get("/users/:id", Api.V1.UserController, :show)
     end
 
     scope "/api" do
       scope "/v1" do
-        get "/users/:id", Api.V1.UserController, :show
+        get("/users/:id", Api.V1.UserController, :show)
       end
     end
 
     scope "/api", Api, private: %{private_token: "foo"} do
-      get "/users", V1.UserController, :show
-      get "/users/:id", V1.UserController, :show, private: %{private_token: "bar"}
+      get("/users", V1.UserController, :show)
+      get("/users/:id", V1.UserController, :show, private: %{private_token: "bar"})
 
       scope "/v1", alias: V1 do
-        resources "/users", UserController, only: [:delete], private: %{private_token: "baz"}
+        resources("/users", UserController, only: [:delete], private: %{private_token: "baz"})
       end
     end
 
     scope "/assigns", Api, assigns: %{assigns_token: "foo"} do
-      get "/users", V1.UserController, :show
-      get "/users/:id", V1.UserController, :show, assigns: %{assigns_token: "bar"}
+      get("/users", V1.UserController, :show)
+      get("/users/:id", V1.UserController, :show, assigns: %{assigns_token: "bar"})
 
       scope "/v1", alias: V1 do
-        resources "/users", UserController, only: [:delete], assigns: %{assigns_token: "baz"}
+        resources("/users", UserController, only: [:delete], assigns: %{assigns_token: "baz"})
       end
     end
 
     scope "/host", host: "baz." do
-      get "/users/:id", Api.V1.UserController, :baz_host
+      get("/users/:id", Api.V1.UserController, :baz_host)
     end
 
     scope host: "foobar.com" do
       scope "/host" do
-        get "/users/:id", Api.V1.UserController, :foo_host
+        get("/users/:id", Api.V1.UserController, :foo_host)
       end
     end
 
     scope "/api" do
       scope "/v1", Api do
         resources "/venues", V1.VenueController, only: [:show], alias: V1 do
-          resources "/users", UserController, only: [:edit]
+          resources("/users", UserController, only: [:edit])
         end
       end
     end
@@ -177,17 +177,18 @@ defmodule Phoenix.Router.ScopedRoutingTest do
     assert_raise ArgumentError, ~r{router paths must be strings, got: '/bar'}, fn ->
       defmodule SomeRouter do
         use Phoenix.Router, otp_app: :phoenix
-        get "/foo", Router, []
-        get '/bar', Router, []
+        get("/foo", Router, [])
+        get('/bar', Router, [])
       end
     end
 
     assert_raise ArgumentError, ~r{router paths must be strings, got: '/bar'}, fn ->
       defmodule SomeRouter do
         use Phoenix.Router, otp_app: :phoenix
-        get "/foo", Router, []
+        get("/foo", Router, [])
+
         scope "/another" do
-          resources '/bar', Router, []
+          resources('/bar', Router, [])
         end
       end
     end

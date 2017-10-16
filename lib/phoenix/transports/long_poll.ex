@@ -39,12 +39,16 @@ defmodule Phoenix.Transports.LongPoll do
   alias Phoenix.Transports.{V2, LongPollSerializer}
 
   def default_config() do
-    [window_ms: 10_000,
-     pubsub_timeout_ms: 2_000,
-     serializer: [{Phoenix.Transports.LongPollSerializer, "~> 1.0.0"},
-                  {Phoenix.Transports.V2.LongPollSerializer, "~> 2.0.0"}],
-     transport_log: false,
-     crypto: [max_age: 1209600]]
+    [
+      window_ms: 10000,
+      pubsub_timeout_ms: 2000,
+      serializer: [
+        {Phoenix.Transports.LongPollSerializer, "~> 1.0.0"},
+        {Phoenix.Transports.V2.LongPollSerializer, "~> 2.0.0"}
+      ],
+      transport_log: false,
+      crypto: [max_age: 1_209_600]
+    ]
   end
 
   ## Plug callbacks
@@ -65,7 +69,7 @@ defmodule Phoenix.Transports.LongPoll do
     |> code_reload(opts, endpoint)
     |> fetch_query_params
     |> put_resp_header("access-control-allow-origin", "*")
-    |> Plug.Conn.fetch_query_params
+    |> Plug.Conn.fetch_query_params()
     |> Transport.transport_log(opts[:transport_log])
     |> Transport.force_ssl(handler, endpoint, opts)
     |> Transport.check_origin(handler, endpoint, opts, &status_json(&1, %{}))
@@ -93,6 +97,7 @@ defmodule Phoenix.Transports.LongPoll do
     case resume_session(conn.params, endpoint, opts) do
       {:ok, server_ref} ->
         listen(conn, server_ref, endpoint, opts)
+
       :error ->
         new_session(conn, endpoint, handler, transport, opts)
     end
@@ -103,6 +108,7 @@ defmodule Phoenix.Transports.LongPoll do
     case resume_session(conn.params, endpoint, opts) do
       {:ok, server_ref} ->
         conn |> parse_json() |> publish(server_ref, endpoint, opts)
+
       :error ->
         conn |> put_status(:gone) |> status_json(%{})
     end
@@ -121,12 +127,14 @@ defmodule Phoenix.Transports.LongPoll do
     |> read_body([])
     |> decode(serializer(conn.params["vsn"]))
   end
+
   defp decode({:ok, body, conn}, serializer) do
     assign(conn, :message, serializer.decode!(body, []))
   rescue
     Phoenix.Socket.InvalidMessageError -> raise Plug.Parsers.ParseError
   end
-  defp decode(_bad_request, _serializr), do: raise Plug.BadRequestError
+
+  defp decode(_bad_request, _serializr), do: raise(Plug.BadRequestError)
 
   defp serializer("1." <> _ = _vsn), do: LongPollSerializer
   defp serializer("2." <> _ = _vsn), do: V2.LongPollSerializer
@@ -136,20 +144,29 @@ defmodule Phoenix.Transports.LongPoll do
     serializer = opts[:serializer]
 
     priv_topic =
-      "phx:lp:"
-      <> Base.encode64(:crypto.strong_rand_bytes(16))
-      <> (System.system_time(:milliseconds) |> Integer.to_string)
+      "phx:lp:" <>
+        Base.encode64(:crypto.strong_rand_bytes(16)) <>
+        (System.system_time(:milliseconds) |> Integer.to_string())
 
-    args = [endpoint, handler, transport, __MODULE__, serializer,
-            conn.params, opts[:window_ms], priv_topic]
+    args = [
+      endpoint,
+      handler,
+      transport,
+      __MODULE__,
+      serializer,
+      conn.params,
+      opts[:window_ms],
+      priv_topic
+    ]
 
     supervisor = Module.concat(endpoint, "LongPoll.Supervisor")
 
     case Supervisor.start_child(supervisor, args) do
       {:ok, :undefined} ->
         conn |> put_status(:forbidden) |> status_json(%{})
+
       {:ok, server_pid} ->
-        data  = {:v1, endpoint.config(:endpoint_id), server_pid, priv_topic}
+        data = {:v1, endpoint.config(:endpoint_id), server_pid, priv_topic}
         token = sign_token(endpoint, data, opts)
         conn |> put_status(:gone) |> status_json(%{token: token})
     end
@@ -167,10 +184,11 @@ defmodule Phoenix.Transports.LongPoll do
 
         {:now_available, ^ref} ->
           broadcast_from!(endpoint, server_ref, {:flush, client_ref(server_ref), ref})
+
           receive do
             {:messages, messages, ^ref} -> {:ok, messages}
           after
-            opts[:window_ms]  -> {:no_content, []}
+            opts[:window_ms] -> {:no_content, []}
           end
       after
         opts[:window_ms] ->
@@ -186,7 +204,7 @@ defmodule Phoenix.Transports.LongPoll do
     msg = conn.assigns.message
 
     case transport_dispatch(endpoint, server_ref, msg, opts) do
-      :ok               -> conn |> put_status(:ok) |> status_json(%{})
+      :ok -> conn |> put_status(:ok) |> status_json(%{})
       {:error, _reason} -> conn |> put_status(:unauthorized) |> status_json(%{})
     end
   end
@@ -207,13 +225,14 @@ defmodule Phoenix.Transports.LongPoll do
         receive do
           {:subscribe, ^ref} -> {:ok, server_ref}
         after
-          opts[:pubsub_timeout_ms]  -> :error
+          opts[:pubsub_timeout_ms] -> :error
         end
 
       _ ->
         :error
     end
   end
+
   defp resume_session(_params, _endpoint, _opts), do: :error
 
   # Publishes a message to the pubsub system.
@@ -222,7 +241,7 @@ defmodule Phoenix.Transports.LongPoll do
     broadcast_from!(endpoint, server_ref, {:dispatch, client_ref(server_ref), msg, ref})
 
     receive do
-      {:dispatch, ^ref}      -> :ok
+      {:dispatch, ^ref} -> :ok
       {:error, reason, ^ref} -> {:error, reason}
     after
       opts[:window_ms] -> {:error, :timeout}
@@ -242,25 +261,31 @@ defmodule Phoenix.Transports.LongPoll do
 
   defp subscribe(endpoint, topic) when is_binary(topic),
     do: Phoenix.PubSub.subscribe(endpoint.__pubsub_server__, topic, link: true)
-  defp subscribe(_endpoint, pid) when is_pid(pid),
-    do: :ok
+
+  defp subscribe(_endpoint, pid) when is_pid(pid), do: :ok
 
   defp broadcast_from!(endpoint, topic, msg) when is_binary(topic),
     do: Phoenix.PubSub.broadcast_from!(endpoint.__pubsub_server__, self(), topic, msg)
-  defp broadcast_from!(_endpoint, pid, msg) when is_pid(pid),
-    do: send(pid, msg)
+
+  defp broadcast_from!(_endpoint, pid, msg) when is_pid(pid), do: send(pid, msg)
 
   defp sign_token(endpoint, data, opts) do
     Phoenix.Token.sign(endpoint, Atom.to_string(endpoint.__pubsub_server__), data, opts[:crypto])
   end
 
   defp verify_token(endpoint, signed, opts) do
-    Phoenix.Token.verify(endpoint, Atom.to_string(endpoint.__pubsub_server__), signed, opts[:crypto])
+    Phoenix.Token.verify(
+      endpoint,
+      Atom.to_string(endpoint.__pubsub_server__),
+      signed,
+      opts[:crypto]
+    )
   end
 
   defp status_json(conn, data) do
     status = Plug.Conn.Status.code(conn.status || 200)
-    data   = Map.put(data, :status, status)
+    data = Map.put(data, :status, status)
+
     conn
     |> put_status(200)
     |> Phoenix.Controller.json(data)

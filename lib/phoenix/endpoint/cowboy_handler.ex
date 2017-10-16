@@ -62,17 +62,18 @@ defmodule Phoenix.Endpoint.CowboyHandler do
       Application.ensure_all_started(:ssl)
     end
 
+    # Allow handlers to be configured at the transport level
     dispatches =
       for {path, socket} <- endpoint.__sockets__,
           {transport, {module, config}} <- socket.__transports__,
-          # Allow handlers to be configured at the transport level
           handler = config[:cowboy] || default_for(module),
-          do: {Path.join(path, Atom.to_string(transport)),
-               handler,
-               {module, {endpoint, socket, transport}}}
+          do: {
+            Path.join(path, Atom.to_string(transport)),
+            handler,
+            {module, {endpoint, socket, transport}}
+          }
 
-    dispatches =
-      dispatches ++ [{:_, Plug.Adapters.Cowboy.Handler, {endpoint, []}}]
+    dispatches = dispatches ++ [{:_, Plug.Adapters.Cowboy.Handler, {endpoint, []}}]
 
     # Use put_new to allow custom dispatches
     config = Keyword.put_new(config, :dispatch, [{:_, dispatches}])
@@ -97,11 +98,11 @@ defmodule Phoenix.Endpoint.CowboyHandler do
     # to plug.HTTP and plug.HTTPS and overridable by users.
     case apply(m, f, a) do
       {:ok, pid} ->
-        Logger.info info(scheme, endpoint, ref)
+        Logger.info(info(scheme, endpoint, ref))
         {:ok, pid}
 
       {:error, {:shutdown, {_, _, {{_, {:error, :eaddrinuse}}, _}}}} = error ->
-        Logger.error [info(scheme, endpoint, ref), " failed, port already in use"]
+        Logger.error([info(scheme, endpoint, ref), " failed, port already in use"])
         error
 
       {:error, _} = error ->
@@ -110,8 +111,8 @@ defmodule Phoenix.Endpoint.CowboyHandler do
   end
 
   defp info(scheme, endpoint, ref) do
-    {addr,port} = :ranch.get_addr(ref)
+    {addr, port} = :ranch.get_addr(ref)
     addr_str = :inet.ntoa(addr)
-    "Running #{inspect endpoint} with Cowboy using #{scheme}://#{addr_str}:#{port}"
+    "Running #{inspect(endpoint)} with Cowboy using #{scheme}://#{addr_str}:#{port}"
   end
 end

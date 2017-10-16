@@ -64,11 +64,12 @@ defmodule Phoenix.Endpoint.Instrument do
         def instrument(unquote(event), var!(compile), var!(runtime), fun)
             when is_map(var!(compile)) and is_map(var!(runtime)) and is_function(fun, 0) do
           unquote(Phoenix.Endpoint.Instrument.compile_start_callbacks(event, instrumenters))
-          start = :erlang.monotonic_time
+          start = :erlang.monotonic_time()
+
           try do
             fun.()
           after
-            var!(diff) = :erlang.monotonic_time - start
+            var!(diff) = :erlang.monotonic_time() - start
             unquote(Phoenix.Endpoint.Instrument.compile_stop_callbacks(event, instrumenters))
           end
         end
@@ -88,7 +89,7 @@ defmodule Phoenix.Endpoint.Instrument do
   # (with no duplicated events); `instrumenters` is the list of instrumenters
   # interested in `event`.
   defp app_instrumenters(otp_app, endpoint) do
-    config        = Application.get_env(otp_app, endpoint, [])
+    config = Application.get_env(otp_app, endpoint, [])
     instrumenters = config[:instrumenters] || []
 
     unless is_list(instrumenters) and Enum.all?(instrumenters, &is_atom/1) do
@@ -100,12 +101,12 @@ defmodule Phoenix.Endpoint.Instrument do
 
   # Strips a `Macro.Env` struct, leaving only interesting compile-time metadata.
   @doc false
-  @spec strip_caller(Macro.Env.t) :: %{}
+  @spec strip_caller(Macro.Env.t()) :: %{}
   def strip_caller(%Macro.Env{module: mod, function: fun, file: file, line: line}) do
     caller = %{module: mod, function: form_fa(fun), file: file, line: line}
 
     if app = Application.get_env(:logger, :compile_time_application) do
-       Map.put(caller, :application, app)
+      Map.put(caller, :application, app)
     else
       caller
     end
@@ -116,7 +117,7 @@ defmodule Phoenix.Endpoint.Instrument do
 
   # called by Phoenix.Endpoint.instrument/4, see docs there
   @doc false
-  @spec extract_endpoint(Plug.Conn.t | Phoenix.Socket.t | module) :: module | nil
+  @spec extract_endpoint(Plug.Conn.t() | Phoenix.Socket.t() | module) :: module | nil
   def extract_endpoint(endpoint_or_conn_or_socket) do
     case endpoint_or_conn_or_socket do
       %Plug.Conn{private: %{phoenix_endpoint: endpoint}} -> endpoint
@@ -133,20 +134,21 @@ defmodule Phoenix.Endpoint.Instrument do
   #     res0 = Instr0.my_event(:start, compile, runtime)
   #
   @doc false
-  @spec compile_start_callbacks(term, [module]) :: Macro.t
+  @spec compile_start_callbacks(term, [module]) :: Macro.t()
   def compile_start_callbacks(event, instrumenters) do
-    Enum.map Enum.with_index(instrumenters), fn {inst, index} ->
-      error_prefix = "Instrumenter #{inspect inst}.#{event}/3 failed.\n"
+    Enum.map(Enum.with_index(instrumenters), fn {inst, index} ->
+      error_prefix = "Instrumenter #{inspect(inst)}.#{event}/3 failed.\n"
+
       quote do
         unquote(build_result_variable(index)) =
           try do
             unquote(inst).unquote(event)(:start, var!(compile), var!(runtime))
           catch
             kind, error ->
-              Logger.error unquote(error_prefix) <> Exception.format(kind, error)
+              Logger.error(unquote(error_prefix) <> Exception.format(kind, error))
           end
       end
-    end
+    end)
   end
 
   # Returns the AST for all the calls to the "stop event" callbacks in the given
@@ -156,29 +158,34 @@ defmodule Phoenix.Endpoint.Instrument do
   #     Instr0.my_event(:stop, diff, res0)
   #
   @doc false
-  @spec compile_stop_callbacks(term, [module]) :: Macro.t
+  @spec compile_stop_callbacks(term, [module]) :: Macro.t()
   def compile_stop_callbacks(event, instrumenters) do
-    Enum.map Enum.with_index(instrumenters), fn {inst, index} ->
-      error_prefix = "Instrumenter #{inspect inst}.#{event}/3 failed.\n"
+    Enum.map(Enum.with_index(instrumenters), fn {inst, index} ->
+      error_prefix = "Instrumenter #{inspect(inst)}.#{event}/3 failed.\n"
+
       quote do
         try do
           unquote(inst).unquote(event)(:stop, var!(diff), unquote(build_result_variable(index)))
         catch
           kind, error ->
-            Logger.error unquote(error_prefix) <> Exception.format(kind, error)
+            Logger.error(unquote(error_prefix) <> Exception.format(kind, error))
         end
       end
-    end
+    end)
   end
 
   # Takes a list of instrumenter modules and returns a list of `{event,
   # instrumenters}` tuples where each tuple represents an event and all the
   # modules interested in that event.
   defp events_to_instrumenters(instrumenters) do
-    instrumenters                                              # [Ins1, Ins2, ...]
-    |> instrumenters_and_events()                              # [{Ins1, e1}, {Ins2, e1}, ...]
-    |> Enum.group_by(fn {_inst, e} -> e end)                   # %{e1 => [{Ins1, e1}, ...], ...}
-    |> Enum.map(fn {e, insts} -> {e, strip_events(insts)} end) # [{e1, [Ins1, Ins2]}, ...]
+    # [Ins1, Ins2, ...]
+    # [{Ins1, e1}, {Ins2, e1}, ...]
+    # %{e1 => [{Ins1, e1}, ...], ...}
+    # [{e1, [Ins1, Ins2]}, ...]
+    instrumenters
+    |> instrumenters_and_events()
+    |> Enum.group_by(fn {_inst, e} -> e end)
+    |> Enum.map(fn {e, insts} -> {e, strip_events(insts)} end)
   end
 
   defp instrumenters_and_events(instrumenters) do

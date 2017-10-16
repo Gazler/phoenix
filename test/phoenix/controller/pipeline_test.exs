@@ -7,9 +7,9 @@ defmodule Phoenix.Controller.PipelineTest do
   defmodule MyController do
     use Phoenix.Controller
 
-    plug :prepend, :before1 when action in [:show, :create, :secret]
-    plug :prepend, :before2
-    plug :do_halt when action in [:secret]
+    plug(:prepend, :before1 when action in [:show, :create, :secret])
+    plug(:prepend, :before2)
+    plug(:do_halt when action in [:secret])
 
     def show(conn, _) do
       prepend(conn, :action)
@@ -40,16 +40,16 @@ defmodule Phoenix.Controller.PipelineTest do
     defp do_halt(conn, _), do: halt(conn)
 
     defp prepend(conn, val) do
-      update_in conn.private.stack, &[val|&1]
+      update_in(conn.private.stack, &[val | &1])
     end
   end
 
   defmodule FallbackFunctionController do
     use Phoenix.Controller
 
-    action_fallback :function_plug
+    action_fallback(:function_plug)
 
-    plug :put_assign
+    plug(:put_assign)
 
     def fallback(_conn, _), do: :not_a_conn
 
@@ -58,6 +58,7 @@ defmodule Phoenix.Controller.PipelineTest do
     defp function_plug(%Plug.Conn{} = conn, :not_a_conn) do
       Plug.Conn.send_resp(conn, 200, "function fallback")
     end
+
     defp function_plug(%Plug.Conn{}, :bad_fallback), do: :bad_function_fallback
 
     defp put_assign(conn, _), do: assign(conn, :value_before_action, :a_value)
@@ -66,13 +67,12 @@ defmodule Phoenix.Controller.PipelineTest do
   defmodule ActionController do
     use Phoenix.Controller
 
-    action_fallback Phoenix.Controller.PipelineTest
+    action_fallback(Phoenix.Controller.PipelineTest)
 
-    plug :put_assign
+    plug(:put_assign)
 
     def action(conn, _) do
-      apply(__MODULE__, conn.private.phoenix_action, [conn, conn.body_params,
-                                                      conn.query_params])
+      apply(__MODULE__, conn.private.phoenix_action, [conn, conn.body_params, conn.query_params])
     end
 
     def show(conn, _, _), do: text(conn, "show")
@@ -91,6 +91,7 @@ defmodule Phoenix.Controller.PipelineTest do
 
     defp put_assign(conn, _), do: assign(conn, :value_before_action, :a_value)
   end
+
   def init(opts), do: opts
   def call(conn, :not_a_conn), do: Plug.Conn.send_resp(conn, 200, "fallback")
   def call(_conn, :bad_fallback), do: :bad_fallback
@@ -101,28 +102,36 @@ defmodule Phoenix.Controller.PipelineTest do
   end
 
   test "invokes the plug stack" do
-    conn = stack_conn()
-           |> MyController.call(:show)
+    conn =
+      stack_conn()
+      |> MyController.call(:show)
+
     assert conn.private.stack == [:action, :before2, :before1]
   end
 
   test "invokes the plug stack with guards" do
-    conn = stack_conn()
-           |> MyController.call(:create)
+    conn =
+      stack_conn()
+      |> MyController.call(:create)
+
     assert conn.private.stack == [:action, :before2, :before1]
   end
 
   test "halts prevent action from running" do
-    conn = stack_conn()
-           |> MyController.call(:secret)
+    conn =
+      stack_conn()
+      |> MyController.call(:secret)
+
     assert conn.private.stack == [:before2, :before1]
   end
 
   test "does not override previous views/layouts" do
-    conn = stack_conn()
-           |> put_view(Hello)
-           |> put_layout(false)
-           |> MyController.call(:create)
+    conn =
+      stack_conn()
+      |> put_view(Hello)
+      |> put_layout(false)
+      |> MyController.call(:create)
+
     assert view_module(conn) == Hello
     assert layout(conn) == false
   end
@@ -186,7 +195,7 @@ defmodule Phoenix.Controller.PipelineTest do
       assert_raise RuntimeError, ~r/can only be called when using Phoenix.Controller/, fn ->
         defmodule config.test do
           import Phoenix.Controller
-          action_fallback Boom
+          action_fallback(Boom)
         end
       end
     end
@@ -195,8 +204,8 @@ defmodule Phoenix.Controller.PipelineTest do
       assert_raise RuntimeError, ~r/can only be called a single time/, fn ->
         defmodule config.test do
           use Phoenix.Controller
-          action_fallback Ok
-          action_fallback Boom
+          action_fallback(Ok)
+          action_fallback(Boom)
         end
       end
     end

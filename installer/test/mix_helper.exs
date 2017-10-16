@@ -18,17 +18,17 @@ defmodule MixHelper do
 
   def in_tmp(which, function) do
     path = Path.join(tmp_path(), to_string(which))
-    File.rm_rf! path
-    File.mkdir_p! path
-    File.cd! path, function
+    File.rm_rf!(path)
+    File.mkdir_p!(path)
+    File.cd!(path, function)
   end
 
   def in_tmp_project(which, function) do
     conf_before = Application.get_env(:phoenix, :generators) || []
     path = Path.join(tmp_path(), to_string(which))
-    File.rm_rf! path
-    File.mkdir_p! path
-    File.cd! path
+    File.rm_rf!(path)
+    File.mkdir_p!(path)
+    File.cd!(path)
     File.touch!("mix.exs")
     function.()
     Application.put_env(:phoenix, :generators, conf_before)
@@ -38,12 +38,12 @@ defmodule MixHelper do
     conf_before = Application.get_env(:phoenix, :generators) || []
     path = Path.join(tmp_path(), to_string(which))
     apps_path = Path.join(path, "apps")
-    File.rm_rf! path
-    File.mkdir_p! path
-    File.mkdir_p! apps_path
-    File.cd! path
+    File.rm_rf!(path)
+    File.mkdir_p!(path)
+    File.mkdir_p!(apps_path)
+    File.cd!(path)
     File.touch!("mix.exs")
-    File.cd! apps_path
+    File.cd!(apps_path)
     function.()
     Application.put_env(:phoenix, :generators, conf_before)
   end
@@ -71,18 +71,23 @@ defmodule MixHelper do
   def assert_file(file, match) do
     cond do
       is_list(match) ->
-        assert_file file, &(Enum.each(match, fn(m) -> assert &1 =~ m end))
+        assert_file(file, &Enum.each(match, fn m -> assert &1 =~ m end))
+
       is_binary(match) or Regex.regex?(match) ->
-        assert_file file, &(assert &1 =~ match)
+        assert_file(file, &assert(&1 =~ match))
+
       is_function(match, 1) ->
         assert_file(file)
         match.(File.read!(file))
-      true -> raise inspect({file, match})
+
+      true ->
+        raise inspect({file, match})
     end
   end
 
   def with_generator_env(new_env, fun) do
     Application.put_env(:phoenix, :generators, new_env)
+
     try do
       fun.()
     after
@@ -112,7 +117,8 @@ defmodule MixHelper do
   def flush do
     receive do
       _ -> flush()
-    after 0 -> :ok
+    after
+      0 -> :ok
     end
   end
 end

@@ -175,9 +175,12 @@ defmodule Phoenix.Token do
       if max_age_secs = opts[:max_age] do
         trunc(max_age_secs * 1000)
       else
-        Logger.warn ":max_age was not set on Phoenix.Token.verify/4. " <>
-                    "A max_age is recommended otherwise tokens are forever valid. " <>
-                    "Please set it to the amount of seconds the token is valid, such as 86400 (1 day)"
+        Logger.warn(
+          ":max_age was not set on Phoenix.Token.verify/4. " <>
+            "A max_age is recommended otherwise tokens are forever valid. " <>
+            "Please set it to the amount of seconds the token is valid, such as 86400 (1 day)"
+        )
+
         nil
       end
 
@@ -185,11 +188,12 @@ defmodule Phoenix.Token do
       {:ok, message} ->
         %{data: data, signed: signed} = Plug.Crypto.safe_binary_to_term(message)
 
-        if max_age_ms && (signed + max_age_ms) < now_ms() do
+        if max_age_ms && signed + max_age_ms < now_ms() do
           {:error, :expired}
         else
           {:ok, data}
         end
+
       :error ->
         {:error, :invalid}
     end
@@ -201,21 +205,20 @@ defmodule Phoenix.Token do
 
   defp get_key_base(%Plug.Conn{} = conn),
     do: conn |> Phoenix.Controller.endpoint_module() |> get_endpoint_key_base()
-  defp get_key_base(%Phoenix.Socket{} = socket),
-    do: get_endpoint_key_base(socket.endpoint)
-  defp get_key_base(endpoint) when is_atom(endpoint),
-    do: get_endpoint_key_base(endpoint)
-  defp get_key_base(string) when is_binary(string) and byte_size(string) >= 20,
-    do: string
+
+  defp get_key_base(%Phoenix.Socket{} = socket), do: get_endpoint_key_base(socket.endpoint)
+  defp get_key_base(endpoint) when is_atom(endpoint), do: get_endpoint_key_base(endpoint)
+  defp get_key_base(string) when is_binary(string) and byte_size(string) >= 20, do: string
 
   defp get_endpoint_key_base(endpoint) do
-    endpoint.config(:secret_key_base) || raise """
-    no :secret_key_base configuration found in #{inspect endpoint}.
-    Ensure your environment has the necessary mix configuration. For example:
+    endpoint.config(:secret_key_base) ||
+      raise """
+      no :secret_key_base configuration found in #{inspect(endpoint)}.
+      Ensure your environment has the necessary mix configuration. For example:
 
-        config :my_app, MyApp.Endpoint,
-            secret_key_base: ...
-    """
+          config :my_app, MyApp.Endpoint,
+              secret_key_base: ...
+      """
   end
 
   # Gathers configuration and generates the key secrets and signing secrets.
@@ -223,10 +226,7 @@ defmodule Phoenix.Token do
     iterations = Keyword.get(opts, :key_iterations, 1000)
     length = Keyword.get(opts, :key_length, 32)
     digest = Keyword.get(opts, :key_digest, :sha256)
-    key_opts = [iterations: iterations,
-                length: length,
-                digest: digest,
-                cache: Plug.Keys]
+    key_opts = [iterations: iterations, length: length, digest: digest, cache: Plug.Keys]
     KeyGenerator.generate(secret_key_base, salt, key_opts)
   end
 

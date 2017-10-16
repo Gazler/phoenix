@@ -22,15 +22,15 @@ defmodule Mix.Phoenix.Context do
   end
 
   def new(context_name, %Schema{} = schema, opts) do
-    ctx_app   = opts[:context_app] || Mix.Phoenix.context_app()
-    base      = Module.concat([Mix.Phoenix.context_base(ctx_app)])
-    module    = Module.concat(base, context_name)
-    alias     = module |> Module.split() |> tl() |> Module.concat()
-    basedir   = Phoenix.Naming.underscore(context_name)
-    basename  = Path.basename(basedir)
-    dir       = Mix.Phoenix.context_lib_path(ctx_app, basedir)
-    test_dir  = Mix.Phoenix.context_test_path(ctx_app, basedir)
-    file      = Path.join([dir, basename <> ".ex"])
+    ctx_app = opts[:context_app] || Mix.Phoenix.context_app()
+    base = Module.concat([Mix.Phoenix.context_base(ctx_app)])
+    module = Module.concat(base, context_name)
+    alias = module |> Module.split() |> tl() |> Module.concat()
+    basedir = Phoenix.Naming.underscore(context_name)
+    basename = Path.basename(basedir)
+    dir = Mix.Phoenix.context_lib_path(ctx_app, basedir)
+    test_dir = Mix.Phoenix.context_test_path(ctx_app, basedir)
+    file = Path.join([dir, basename <> ".ex"])
     test_file = Path.join([test_dir, basename <> "_test.exs"])
     generate? = Keyword.get(opts, :context, true)
 
@@ -47,7 +47,8 @@ defmodule Mix.Phoenix.Context do
       dir: dir,
       generate?: generate?,
       context_app: ctx_app,
-      opts: opts}
+      opts: opts
+    }
   end
 
   def pre_existing?(%Context{file: file}), do: File.exists?(file)
@@ -60,9 +61,9 @@ defmodule Mix.Phoenix.Context do
       |> File.read!()
       |> Code.string_to_quoted!()
       |> Macro.postwalk(0, fn
-        {:def, _, _} = node, count -> {node, count + 1}
-        node, count -> {node, count}
-      end)
+           {:def, _, _} = node, count -> {node, count + 1}
+           node, count -> {node, count}
+         end)
 
     count
   end
@@ -76,6 +77,7 @@ defmodule Mix.Phoenix.Context do
 
   defp web_module do
     base = Mix.Phoenix.base()
+
     if String.ends_with?(base, "Web") do
       Module.concat([base])
     else

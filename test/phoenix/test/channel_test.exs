@@ -1,8 +1,11 @@
 defmodule Phoenix.Test.ChannelTest do
   use ExUnit.Case, async: true
 
-  config = [pubsub: [adapter: Phoenix.PubSub.PG2,
-                     name: Phoenix.Test.ChannelTest.PubSub], server: false]
+  config = [
+    pubsub: [adapter: Phoenix.PubSub.PG2, name: Phoenix.Test.ChannelTest.PubSub],
+    server: false
+  ]
+
   Application.put_env(:phoenix, __MODULE__.Endpoint, config)
 
   alias Phoenix.Socket
@@ -31,7 +34,7 @@ defmodule Phoenix.Test.ChannelTest do
   defmodule Channel do
     use Phoenix.Channel
 
-    intercept ["stop"]
+    intercept(["stop"])
 
     def join("foo:ok", _, socket) do
       {:ok, socket}
@@ -61,12 +64,12 @@ defmodule Phoenix.Test.ChannelTest do
     end
 
     def handle_in("broadcast", broadcast, socket) do
-      broadcast_from! socket, "broadcast", broadcast
+      broadcast_from!(socket, "broadcast", broadcast)
       {:noreply, socket}
     end
 
     def handle_in("noreply", %{"req" => arg}, socket) do
-      push socket, "noreply", %{"resp" => arg}
+      push(socket, "noreply", %{"resp" => arg})
       {:noreply, socket}
     end
 
@@ -105,7 +108,7 @@ defmodule Phoenix.Test.ChannelTest do
     end
 
     def handle_info(%Broadcast{event: event, payload: payload}, socket) do
-      push socket, event, payload
+      push(socket, event, payload)
       {:noreply, socket}
     end
 
@@ -114,12 +117,12 @@ defmodule Phoenix.Test.ChannelTest do
     end
 
     def handle_info(:push, socket) do
-      push socket, "info", %{"reason" => "push"}
+      push(socket, "info", %{"reason" => "push"})
       {:noreply, socket}
     end
 
     def handle_info(:broadcast, socket) do
-      broadcast_from socket, "info", %{"reason" => "broadcast"}
+      broadcast_from(socket, "info", %{"reason" => "broadcast"})
       {:noreply, socket}
     end
 
@@ -128,7 +131,7 @@ defmodule Phoenix.Test.ChannelTest do
     end
 
     def terminate(reason, socket) do
-      send socket.transport_pid, {:terminate, reason}
+      send(socket.transport_pid, {:terminate, reason})
       :ok
     end
   end
@@ -146,9 +149,9 @@ defmodule Phoenix.Test.ChannelTest do
   defmodule UserSocket do
     use Phoenix.Socket
 
-    channel "foo:*", Channel, assigns: %{user_socket_assigns: true}
+    channel("foo:*", Channel, assigns: %{user_socket_assigns: true})
 
-    transport :websocket, Phoenix.Transports.WebSocket
+    transport(:websocket, Phoenix.Transports.WebSocket)
 
     def connect(params, socket) do
       if params["reject"] == true do
@@ -160,7 +163,6 @@ defmodule Phoenix.Test.ChannelTest do
 
     def id(_), do: "123"
   end
-
 
   @endpoint Endpoint
   use Phoenix.ChannelTest
@@ -174,26 +176,26 @@ defmodule Phoenix.Test.ChannelTest do
 
   test "socket/0" do
     assert socket() == %Socket{
-      endpoint: @endpoint,
-      pubsub_server: Phoenix.Test.ChannelTest.PubSub,
-      transport: Phoenix.ChannelTest,
-      transport_name: :channel_test,
-      transport_pid: self(),
-      serializer: Phoenix.ChannelTest.NoopSerializer
-    }
+             endpoint: @endpoint,
+             pubsub_server: Phoenix.Test.ChannelTest.PubSub,
+             transport: Phoenix.ChannelTest,
+             transport_name: :channel_test,
+             transport_pid: self(),
+             serializer: Phoenix.ChannelTest.NoopSerializer
+           }
   end
 
   test "socket/2" do
     assert socket("user:id", %{hello: :world}) == %Socket{
-      id: "user:id",
-      assigns: %{hello: :world},
-      endpoint: @endpoint,
-      pubsub_server: Phoenix.Test.ChannelTest.PubSub,
-      transport: Phoenix.ChannelTest,
-      transport_name: :channel_test,
-      transport_pid: self(),
-      serializer: Phoenix.ChannelTest.NoopSerializer
-    }
+             id: "user:id",
+             assigns: %{hello: :world},
+             endpoint: @endpoint,
+             pubsub_server: Phoenix.Test.ChannelTest.PubSub,
+             transport: Phoenix.ChannelTest,
+             transport_name: :channel_test,
+             transport_pid: self(),
+             serializer: Phoenix.ChannelTest.NoopSerializer
+           }
   end
 
   ## join
@@ -230,33 +232,33 @@ defmodule Phoenix.Test.ChannelTest do
 
   test "pushes and receives pushed messages" do
     {:ok, _, socket} = join(socket(), Channel, "foo:ok")
-    ref = push socket, "noreply", %{"req" => "foo"}
-    assert_push "noreply", %{"resp" => "foo"}
-    refute_reply ref, _status
+    ref = push(socket, "noreply", %{"req" => "foo"})
+    assert_push("noreply", %{"resp" => "foo"})
+    refute_reply(ref, _status)
   end
 
   test "pushes and receives replies" do
     {:ok, _, socket} = join(socket(), Channel, "foo:ok")
 
-    ref = push socket, "reply", %{}
-    assert_reply ref, :ok
-    refute_push _status, _payload
+    ref = push(socket, "reply", %{})
+    assert_reply(ref, :ok)
+    refute_push(_status, _payload)
 
-    ref = push socket, "reply", %{"req" => "foo"}
-    assert_reply ref, :ok, %{"resp" => "foo"}
+    ref = push(socket, "reply", %{"req" => "foo"})
+    assert_reply(ref, :ok, %{"resp" => "foo"})
   end
 
   test "receives async replies" do
     {:ok, _, socket} = join(socket(), Channel, "foo:ok")
 
-    ref = push socket, "async_reply", %{"req" => "foo"}
-    assert_reply ref, :ok, %{"async_resp" => "foo"}
+    ref = push(socket, "async_reply", %{"req" => "foo"})
+    assert_reply(ref, :ok, %{"async_resp" => "foo"})
   end
 
   test "crashed channel propagates exit" do
     Process.flag(:trap_exit, true)
     {:ok, _, socket} = join(socket(), Channel, "foo:ok")
-    push socket, "crash", %{}
+    push(socket, "crash", %{})
     pid = socket.channel_pid
     assert_receive {:terminate, _}
     assert_receive {:EXIT, ^pid, _}
@@ -266,29 +268,29 @@ defmodule Phoenix.Test.ChannelTest do
   test "pushes on stop" do
     Process.flag(:trap_exit, true)
     {:ok, _, socket} = join(socket(), Channel, "foo:ok")
-    push socket, "stop", %{"reason" => :normal}
+    push(socket, "stop", %{"reason" => :normal})
     pid = socket.channel_pid
     assert_receive {:terminate, :normal}
     assert_graceful_exit(pid)
 
     # Pushing after stop doesn't crash the client/transport
     Process.flag(:trap_exit, false)
-    push socket, "stop", %{"reason" => :normal}
+    push(socket, "stop", %{"reason" => :normal})
   end
 
   test "pushes and receives replies on stop" do
     Process.flag(:trap_exit, true)
 
     {:ok, _, socket} = join(socket(), Channel, "foo:ok")
-    ref = push socket, "stop_and_reply", %{}
-    assert_reply ref, :ok
+    ref = push(socket, "stop_and_reply", %{})
+    assert_reply(ref, :ok)
     pid = socket.channel_pid
     assert_receive {:terminate, :shutdown}
     assert_graceful_exit(pid)
 
     {:ok, _, socket} = join(socket(), Channel, "foo:ok")
-    ref = push socket, "stop_and_reply", %{"req" => "foo"}
-    assert_reply ref, :ok, %{"resp" => "foo"}
+    ref = push(socket, "stop_and_reply", %{"req" => "foo"})
+    assert_reply(ref, :ok, %{"resp" => "foo"})
     pid = socket.channel_pid
     assert_receive {:terminate, :shutdown}
     assert_graceful_exit(pid)
@@ -296,38 +298,38 @@ defmodule Phoenix.Test.ChannelTest do
 
   test "pushes and broadcast messages" do
     socket = subscribe_and_join!(socket(), Channel, "foo:ok")
-    refute_broadcast "broadcast", _params
-    push socket, "broadcast", %{"foo" => "bar"}
-    assert_broadcast "broadcast", %{"foo" => "bar"}
+    refute_broadcast("broadcast", _params)
+    push(socket, "broadcast", %{"foo" => "bar"})
+    assert_broadcast("broadcast", %{"foo" => "bar"})
   end
 
   test "connects and joins topics directly" do
     :error = connect(UserSocket, %{"reject" => true})
     {:ok, socket} = connect(UserSocket, %{})
     socket = subscribe_and_join!(socket, "foo:ok")
-    push socket, "broadcast", %{"foo" => "bar"}
+    push(socket, "broadcast", %{"foo" => "bar"})
     assert socket.id == "123"
-    assert_broadcast "broadcast", %{"foo" => "bar"}
+    assert_broadcast("broadcast", %{"foo" => "bar"})
 
     {:ok, _, socket} = subscribe_and_join(socket, "foo:ok")
-    push socket, "broadcast", %{"foo" => "bar"}
+    push(socket, "broadcast", %{"foo" => "bar"})
     assert socket.id == "123"
-    assert_broadcast "broadcast", %{"foo" => "bar"}
+    assert_broadcast("broadcast", %{"foo" => "bar"})
   end
 
   test "pushes atom parameter keys as strings" do
     {:ok, _, socket} = join(socket(), Channel, "foo:ok")
 
-    ref = push socket, "reply", %{req: %{parameter: 1}}
-    assert_reply ref, :ok, %{"resp" => %{"parameter" => 1}}
+    ref = push(socket, "reply", %{req: %{parameter: 1}})
+    assert_reply(ref, :ok, %{"resp" => %{"parameter" => 1}})
   end
 
   test "pushes structs without modifying them" do
     {:ok, _, socket} = join(socket(), Channel, "foo:ok")
     date = ~D[2010-04-17]
 
-    ref = push socket, "reply", %{req: date}
-    assert_reply ref, :ok, %{"resp" => ^date}
+    ref = push(socket, "reply", %{req: date})
+    assert_reply(ref, :ok, %{"resp" => ^date})
   end
 
   test "connects with atom parameter keys as strings" do
@@ -338,14 +340,14 @@ defmodule Phoenix.Test.ChannelTest do
 
   test "push broadcasts by default" do
     socket = subscribe_and_join!(socket(), Channel, "foo:ok")
-    broadcast_from! socket, "default", %{"foo" => "bar"}
-    assert_push "default", %{"foo" => "bar"}
+    broadcast_from!(socket, "default", %{"foo" => "bar"})
+    assert_push("default", %{"foo" => "bar"})
   end
 
   test "handles broadcasts and stops" do
     Process.flag(:trap_exit, true)
     {:ok, _, socket} = subscribe_and_join(socket(), Channel, "foo:ok")
-    broadcast_from! socket, "stop", %{"foo" => "bar"}
+    broadcast_from!(socket, "stop", %{"foo" => "bar"})
     pid = socket.channel_pid
     assert_receive {:terminate, :shutdown}
     assert_graceful_exit(pid)
@@ -357,21 +359,21 @@ defmodule Phoenix.Test.ChannelTest do
     Process.flag(:trap_exit, true)
     socket = subscribe_and_join!(socket(), Channel, "foo:ok")
     pid = socket.channel_pid
-    send pid, :stop
+    send(pid, :stop)
     assert_receive {:terminate, :shutdown}
     assert_graceful_exit(pid)
   end
 
   test "handles messages and pushes" do
     socket = subscribe_and_join!(socket(), Channel, "foo:ok")
-    send socket.channel_pid, :push
-    assert_push "info", %{"reason" => "push"}
+    send(socket.channel_pid, :push)
+    assert_push("info", %{"reason" => "push"})
   end
 
   test "handles messages and broadcasts" do
     socket = subscribe_and_join!(socket(), Channel, "foo:ok")
-    send socket.channel_pid, :broadcast
-    assert_broadcast "info", %{"reason" => "broadcast"}
+    send(socket.channel_pid, :broadcast)
+    assert_broadcast("info", %{"reason" => "broadcast"})
   end
 
   ## terminate
@@ -380,7 +382,7 @@ defmodule Phoenix.Test.ChannelTest do
     Process.flag(:trap_exit, true)
     {:ok, _, socket} = join(socket(), Channel, "foo:ok")
     ref = leave(socket)
-    assert_reply ref, :ok
+    assert_reply(ref, :ok)
 
     pid = socket.channel_pid
     assert_receive {:terminate, {:shutdown, :left}}
@@ -418,38 +420,34 @@ defmodule Phoenix.Test.ChannelTest do
 
   test "code_change/3 proxies to channel" do
     socket = %Socket{channel: Channel}
-    assert Phoenix.Channel.Server.code_change(:old, socket, :extra) ==
-      {:ok, socket}
+    assert Phoenix.Channel.Server.code_change(:old, socket, :extra) == {:ok, socket}
   end
 
   test "code_change/3 is overridable" do
     socket = %Socket{channel: CodeChangeChannel}
-    assert Phoenix.Channel.Server.code_change(:old, socket, :extra) ==
-      {:error, :cant}
+    assert Phoenix.Channel.Server.code_change(:old, socket, :extra) == {:error, :cant}
   end
 
   test "external subscriptions" do
     socket = subscribe_and_join!(socket(), Channel, "foo:external")
     socket.endpoint.broadcast!("external:topic", "external_event", %{one: 1})
-    assert_receive %Message{topic: "foo:external",
-                            event: "external_event",
-                            payload: %{one: 1}}
-
+    assert_receive %Message{topic: "foo:external", event: "external_event", payload: %{one: 1}}
   end
 
   test "warns on unhandled handle_info/2 messages" do
     socket = subscribe_and_join!(socket(), EmptyChannel, "topic")
+
     assert ExUnit.CaptureLog.capture_log(fn ->
-      send socket.channel_pid, :unhandled
-      ref = push socket, "hello", %{}
-      assert_reply ref, :ok
-    end) =~ "received unexpected message in handle_info/2: :unhandled"
+             send(socket.channel_pid, :unhandled)
+             ref = push(socket, "hello", %{})
+             assert_reply(ref, :ok)
+           end) =~ "received unexpected message in handle_info/2: :unhandled"
   end
 
   test "subscribes to socket.id and receives disconnects" do
     {:ok, socket} = connect(UserSocket, %{})
     socket.endpoint.broadcast!(socket.id, "disconnect", %{})
-    assert_broadcast "disconnect", %{}
+    assert_broadcast("disconnect", %{})
   end
 
   test "supports static assigns in user socket channel definition" do

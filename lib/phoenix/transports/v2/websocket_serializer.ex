@@ -17,8 +17,14 @@ defmodule Phoenix.Transports.V2.WebSocketSerializer do
   Encodes a `Phoenix.Socket.Message` struct to JSON string.
   """
   def encode!(%Reply{} = reply) do
-    data = [reply.join_ref, reply.ref, reply.topic, "phx_reply",
-            %{status: reply.status, response: reply.payload}]
+    data = [
+      reply.join_ref,
+      reply.ref,
+      reply.topic,
+      "phx_reply",
+      %{status: reply.status, response: reply.payload}
+    ]
+
     {:socket_push, :text, Poison.encode_to_iodata!(data)}
   end
 
@@ -38,7 +44,7 @@ defmodule Phoenix.Transports.V2.WebSocketSerializer do
       event: event,
       payload: payload,
       ref: ref,
-      join_ref: join_ref,
+      join_ref: join_ref
     }
   end
 end

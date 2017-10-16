@@ -19,24 +19,24 @@ defmodule Phoenix.Router.RoutingTest do
   defmodule Router do
     use Phoenix.Router
 
-    get "/", UserController, :index, as: :users
-    get "/users/top", UserController, :top, as: :top
-    get "/users/:id", UserController, :show, as: :users
-    get "/spaced users/:id", UserController, :show
-    get "/profiles/profile-:id", UserController, :show
-    get "/route_that_crashes", UserController, :crash
-    get "/files/:user_name/*path", UserController, :image
-    get "/backups/*path", UserController, :image
-    get "/static/images/icons/*image", UserController, :image
+    get("/", UserController, :index, as: :users)
+    get("/users/top", UserController, :top, as: :top)
+    get("/users/:id", UserController, :show, as: :users)
+    get("/spaced users/:id", UserController, :show)
+    get("/profiles/profile-:id", UserController, :show)
+    get("/route_that_crashes", UserController, :crash)
+    get("/files/:user_name/*path", UserController, :image)
+    get("/backups/*path", UserController, :image)
+    get("/static/images/icons/*image", UserController, :image)
 
-    trace "/trace", UserController, :trace
-    options "/options", UserController, :options
-    connect "/connect", UserController, :connect
-    match :move, "/move", UserController, :move
-    match :*, "/any", UserController, :any
+    trace("/trace", UserController, :trace)
+    options("/options", UserController, :options)
+    connect("/connect", UserController, :connect)
+    match(:move, "/move", UserController, :move)
+    match(:*, "/any", UserController, :any)
 
-    get "/users/:user_id/files/:id", UserController, :image
-    get "/*path", UserController, :not_found
+    get("/users/:user_id/files/:id", UserController, :image)
+    get("/*path", UserController, :not_found)
   end
 
   setup do

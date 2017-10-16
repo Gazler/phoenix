@@ -43,12 +43,15 @@ defmodule Phoenix.Config do
   @spec cache(module, term, (module -> {:cache | :nocache, term})) :: term
   def cache(module, key, fun) do
     case :ets.lookup(module, key) do
-      [{^key, :cache, val}] -> val
+      [{^key, :cache, val}] ->
+        val
+
       [] ->
         case fun.(module) do
           {:cache, val} ->
             :ets.insert(module, {key, :cache, val})
             val
+
           {:nocache, val} ->
             val
         end
@@ -72,12 +75,19 @@ defmodule Phoenix.Config do
   def from_env(otp_app, module, defaults) do
     merge(defaults, fetch_config(otp_app, module))
   end
+
   defp fetch_config(otp_app, module) do
     case Application.fetch_env(otp_app, module) do
-      {:ok, conf} -> conf
+      {:ok, conf} ->
+        conf
+
       :error ->
-        IO.puts :stderr, "warning: no configuration found for otp_app " <>
-                         "#{inspect otp_app} and module #{inspect module}"
+        IO.puts(
+          :stderr,
+          "warning: no configuration found for otp_app " <>
+            "#{inspect(otp_app)} and module #{inspect(module)}"
+        )
+
         []
     end
   end
@@ -99,7 +109,7 @@ defmodule Phoenix.Config do
 
   def init({module, config, defaults}) do
     :ets.new(module, [:named_table, :public, read_concurrency: true])
-    :ets.insert(module, [__config__: self()])
+    :ets.insert(module, __config__: self())
     update(module, config)
     {:ok, {module, defaults}}
   end
@@ -109,8 +119,10 @@ defmodule Phoenix.Config do
       changed = changed[module] ->
         update(module, merge(defaults, changed))
         {:reply, :ok, {module, defaults}}
+
       module in removed ->
         stop(module, defaults)
+
       true ->
         {:reply, :ok, {module, defaults}}
     end
@@ -132,8 +144,8 @@ defmodule Phoenix.Config do
 
   defp update(module, config) do
     old_keys = keys(:ets.tab2list(module))
-    new_keys = [:__config__|keys(config)]
-    Enum.each old_keys -- new_keys, &:ets.delete(module, &1)
+    new_keys = [:__config__ | keys(config)]
+    Enum.each(old_keys -- new_keys, &:ets.delete(module, &1))
     :ets.insert(module, config)
   end
 

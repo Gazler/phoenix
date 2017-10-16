@@ -7,8 +7,8 @@ defmodule Phoenix.SocketTest do
   defmodule UserSocket do
     use Phoenix.Socket
 
-    transport :websocket, Phoenix.Transports.WebSocket, timeout: 1234
-    transport :longpoll, Phoenix.Transports.LongPoll
+    transport(:websocket, Phoenix.Transports.WebSocket, timeout: 1234)
+    transport(:longpoll, Phoenix.Transports.LongPoll)
 
     def connect(_, socket), do: {:ok, socket}
     def id(_), do: nil
@@ -27,12 +27,15 @@ defmodule Phoenix.SocketTest do
     assert_raise InvalidMessageError, fn ->
       Message.from_map!(%{"event" => "e", "payload" => "", "ref" => "r"})
     end
+
     assert_raise InvalidMessageError, fn ->
       Message.from_map!(%{"topic" => "c", "payload" => "", "ref" => "r"})
     end
+
     assert_raise InvalidMessageError, fn ->
       Message.from_map!(%{"topic" => "c", "event" => "e", "ref" => "r"})
     end
+
     assert_raise InvalidMessageError, fn ->
       Message.from_map!(%{"topic" => "c", "event" => "e"})
     end
@@ -49,8 +52,8 @@ defmodule Phoenix.SocketTest do
     assert_raise ArgumentError, ~r/duplicate transports/, fn ->
       defmodule MySocket do
         use Phoenix.Socket
-        transport :websocket, Phoenix.Transports.WebSocket
-        transport :websocket, SpdyTransport
+        transport(:websocket, Phoenix.Transports.WebSocket)
+        transport(:websocket, SpdyTransport)
         def connect(_, socket), do: {:ok, socket}
         def id(_), do: nil
       end
@@ -58,22 +61,37 @@ defmodule Phoenix.SocketTest do
   end
 
   test "__transports__" do
-    assert %{longpoll: {Phoenix.Transports.LongPoll, _},
-             websocket: {Phoenix.Transports.WebSocket, _}} = UserSocket.__transports__()
+    assert %{
+             longpoll: {Phoenix.Transports.LongPoll, _},
+             websocket: {Phoenix.Transports.WebSocket, _}
+           } = UserSocket.__transports__()
   end
 
   test "transport config is exposted and merged with prior registrations" do
     {Phoenix.Transports.WebSocket, opts} = UserSocket.__transport__(:websocket)
+
     assert Enum.sort(opts) ==
-      [serializer: [{Phoenix.Transports.WebSocketSerializer, "~> 1.0.0"},
-                    {Phoenix.Transports.V2.WebSocketSerializer, "~> 2.0.0"}],
-       timeout: 1234, transport_log: false]
+             [
+               serializer: [
+                 {Phoenix.Transports.WebSocketSerializer, "~> 1.0.0"},
+                 {Phoenix.Transports.V2.WebSocketSerializer, "~> 2.0.0"}
+               ],
+               timeout: 1234,
+               transport_log: false
+             ]
 
     {Phoenix.Transports.LongPoll, opts} = UserSocket.__transport__(:longpoll)
+
     assert Enum.sort(opts) ==
-      [crypto: [max_age: 1209600], pubsub_timeout_ms: 2000,
-       serializer: [{Phoenix.Transports.LongPollSerializer, "~> 1.0.0"},
-                    {Phoenix.Transports.V2.LongPollSerializer, "~> 2.0.0"}],
-       transport_log: false, window_ms: 10000]
+             [
+               crypto: [max_age: 1_209_600],
+               pubsub_timeout_ms: 2000,
+               serializer: [
+                 {Phoenix.Transports.LongPollSerializer, "~> 1.0.0"},
+                 {Phoenix.Transports.V2.LongPollSerializer, "~> 2.0.0"}
+               ],
+               transport_log: false,
+               window_ms: 10000
+             ]
   end
 end

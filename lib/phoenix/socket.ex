@@ -97,7 +97,7 @@ defmodule Phoenix.Socket do
   See `Phoenix.Token` documentation for examples in
   performing token verification on connect.
   """
-  @callback connect(params :: map, Socket.t) :: {:ok, Socket.t} | :error
+  @callback connect(params :: map, Socket.t()) :: {:ok, Socket.t()} | :error
 
   @doc ~S"""
   Identifies the socket connection.
@@ -113,7 +113,7 @@ defmodule Phoenix.Socket do
 
   Returning `nil` makes this socket anonymous.
   """
-  @callback id(Socket.t) :: String.t | nil
+  @callback id(Socket.t()) :: String.t() | nil
 
   defmodule InvalidMessageError do
     @moduledoc """
@@ -122,21 +122,23 @@ defmodule Phoenix.Socket do
     defexception [:message]
   end
 
-  @type t :: %Socket{id: nil,
-                     assigns: map,
-                     channel: atom,
-                     channel_pid: pid,
-                     endpoint: atom,
-                     handler: atom,
-                     joined: boolean,
-                     pubsub_server: atom,
-                     ref: term,
-                     topic: String.t,
-                     transport: atom,
-                     transport_name: atom,
-                     serializer: atom,
-                     transport_pid: pid,
-                     private: %{}}
+  @type t :: %Socket{
+          id: nil,
+          assigns: map,
+          channel: atom,
+          channel_pid: pid,
+          endpoint: atom,
+          handler: atom,
+          joined: boolean,
+          pubsub_server: atom,
+          ref: term,
+          topic: String.t(),
+          transport: atom,
+          transport_name: atom,
+          serializer: atom,
+          transport_pid: pid,
+          private: %{}
+        }
 
   defstruct id: nil,
             assigns: %{},
@@ -168,7 +170,7 @@ defmodule Phoenix.Socket do
 
   defmacro __before_compile__(env) do
     transports = Module.get_attribute(env.module, :phoenix_transports)
-    channels   = Module.get_attribute(env.module, :phoenix_channels)
+    channels = Module.get_attribute(env.module, :phoenix_channels)
 
     transport_defs =
       for {name, {mod, conf}} <- transports do
@@ -198,7 +200,7 @@ defmodule Phoenix.Socket do
     case String.split(topic_pattern, "*") do
       [prefix, ""] -> quote do: <<unquote(prefix) <> _rest>>
       [bare_topic] -> bare_topic
-      _            -> raise ArgumentError, "channels using splat patterns must end with *"
+      _ -> raise ArgumentError, "channels using splat patterns must end with *"
     end
   end
 
@@ -211,7 +213,8 @@ defmodule Phoenix.Socket do
   defp defchannel(topic_match, channel_module, transports, opts) do
     quote do
       def __channel__(unquote(topic_match), transport)
-          when transport in unquote(List.wrap(transports)), do: unquote({channel_module, opts})
+          when transport in unquote(List.wrap(transports)),
+          do: unquote({channel_module, opts})
     end
   end
 
@@ -228,7 +231,7 @@ defmodule Phoenix.Socket do
 
   """
   def assign(socket = %Socket{}, key, value) do
-    put_in socket.assigns[key], value
+    put_in(socket.assigns[key], value)
   end
 
   @doc """
@@ -273,12 +276,14 @@ defmodule Phoenix.Socket do
     end
   end
 
-  defp tear_alias({:__aliases__, meta, [h|t]}) do
+  defp tear_alias({:__aliases__, meta, [h | t]}) do
     alias = {:__aliases__, meta, [h]}
+
     quote do
-      Module.concat([unquote(alias)|unquote(t)])
+      Module.concat([unquote(alias) | unquote(t)])
     end
   end
+
   defp tear_alias(other), do: other
 
   @doc """
@@ -298,13 +303,18 @@ defmodule Phoenix.Socket do
   defmacro transport(name, module, config \\ []) do
     quote do
       @phoenix_transports Phoenix.Socket.__transport__(
-        @phoenix_transports, unquote(name), unquote(module), unquote(config))
+                            @phoenix_transports,
+                            unquote(name),
+                            unquote(module),
+                            unquote(config)
+                          )
     end
   end
 
   @doc false
   def __transport__(transports, name, module, user_conf) do
     defaults = module.default_config()
+
     conf =
       user_conf
       |> normalize_serializer_conf(name, module, defaults[:serializer])
@@ -312,38 +322,43 @@ defmodule Phoenix.Socket do
 
     Map.update(transports, name, {module, conf}, fn {dup_module, _} ->
       raise ArgumentError,
-        "duplicate transports (#{inspect dup_module} and #{inspect module}) defined for #{inspect name}."
+            "duplicate transports (#{inspect(dup_module)} and #{inspect(module)}) defined for #{
+              inspect(name)
+            }."
     end)
   end
+
   defp merge_defaults(conf, defaults), do: Keyword.merge(defaults, conf)
 
   defp normalize_serializer_conf(conf, name, transport_mod, default) do
     update_in(conf, [:serializer], fn
-      nil -> default
+      nil ->
+        default
 
       Phoenix.Transports.LongPollSerializer = serializer ->
         warn_serializer_deprecation(name, transport_mod, serializer)
         default
 
-
       Phoenix.Transports.WebSocketSerializer = serializer ->
         warn_serializer_deprecation(name, transport_mod, serializer)
         default
 
-      [_ | _] = serializer -> serializer
+      [_ | _] = serializer ->
+        serializer
 
       serializer when is_atom(serializer) ->
         warn_serializer_deprecation(name, transport_mod, serializer)
         [{serializer, "~> 1.0.0"}]
     end)
   end
+
   defp warn_serializer_deprecation(name, transport_mod, serializer) do
-    IO.puts :stderr, """
+    IO.puts(:stderr, """
     [warning] passing a serializer module to the transport macro is deprecated.
     Use a list with version requirements instead. For example:
 
-        transport :#{name}, #{inspect transport_mod},
-          serializer: [{#{inspect serializer}, "~> 1.0.0"}]
-    """
+        transport :#{name}, #{inspect(transport_mod)},
+          serializer: [{#{inspect(serializer)}, "~> 1.0.0"}]
+    """)
   end
 end

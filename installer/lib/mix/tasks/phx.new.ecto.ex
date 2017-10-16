@@ -52,9 +52,10 @@ defmodule Mix.Tasks.Phx.New.Ecto do
   def run([]) do
     Mix.Tasks.Help.run(["phx.new.ecto"])
   end
+
   def run([path | _] = args) do
     unless in_umbrella?(path) do
-      Mix.raise "The ecto task can only be run within an umbrella's apps directory"
+      Mix.raise("The ecto task can only be run within an umbrella's apps directory")
     end
 
     Mix.Tasks.Phx.New.run(args ++ ["--no-brunch", "--ecto"], Phx.New.Ecto)

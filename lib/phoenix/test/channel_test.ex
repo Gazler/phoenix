@@ -197,12 +197,14 @@ defmodule Phoenix.ChannelTest do
   defmacro socket() do
     if endpoint = Module.get_attribute(__CALLER__.module, :endpoint) do
       quote do
-        %Socket{serializer: NoopSerializer,
-                transport_pid: self(),
-                endpoint: unquote(endpoint),
-                pubsub_server: unquote(endpoint).__pubsub_server__(),
-                transport: unquote(__MODULE__),
-                transport_name: :channel_test}
+        %Socket{
+          serializer: NoopSerializer,
+          transport_pid: self(),
+          endpoint: unquote(endpoint),
+          pubsub_server: unquote(endpoint).__pubsub_server__(),
+          transport: unquote(__MODULE__),
+          transport_name: :channel_test
+        }
       end
     else
       raise "module attribute @endpoint not set for socket/0"
@@ -217,14 +219,16 @@ defmodule Phoenix.ChannelTest do
   defmacro socket(id, assigns) do
     if endpoint = Module.get_attribute(__CALLER__.module, :endpoint) do
       quote do
-        %Socket{serializer: NoopSerializer,
-                transport_pid: self(),
-                endpoint: unquote(endpoint),
-                pubsub_server: unquote(endpoint).__pubsub_server__(),
-                id: unquote(id),
-                assigns: Enum.into(unquote(assigns), %{}),
-                transport: unquote(__MODULE__),
-                transport_name: :channel_test}
+        %Socket{
+          serializer: NoopSerializer,
+          transport_pid: self(),
+          endpoint: unquote(endpoint),
+          pubsub_server: unquote(endpoint).__pubsub_server__(),
+          id: unquote(id),
+          assigns: Enum.into(unquote(assigns), %{}),
+          transport: unquote(__MODULE__),
+          transport_name: :channel_test
+        }
       end
     else
       raise "module attribute @endpoint not set for socket/2"
@@ -250,31 +254,41 @@ defmodule Phoenix.ChannelTest do
   @doc false
   def __connect__(endpoint, handler, params) do
     endpoint
-    |> Transport.connect(handler, :channel_test, __MODULE__, NoopSerializer, __stringify__(params))
+    |> Transport.connect(
+         handler,
+         :channel_test,
+         __MODULE__,
+         NoopSerializer,
+         __stringify__(params)
+       )
     |> subscribe_to_socket_id(endpoint, handler)
   end
+
   defp subscribe_to_socket_id({:ok, socket}, endpoint, handler) do
     if topic = handler.id(socket) do
       :ok = endpoint.subscribe(topic)
     end
+
     {:ok, socket}
   end
+
   defp subscribe_to_socket_id(error, _endpoint, _handler), do: error
 
   @doc "See `subscribe_and_join!/4`."
   def subscribe_and_join!(%Socket{} = socket, topic) when is_binary(topic) do
     subscribe_and_join!(socket, topic, %{})
   end
+
   @doc "See `subscribe_and_join!/4`."
   def subscribe_and_join!(%Socket{} = socket, topic, payload)
       when is_binary(topic) and is_map(payload) do
-
     {channel, opts} = match_topic_to_channel!(socket, topic)
 
     socket
     |> with_opts(opts)
     |> subscribe_and_join!(channel, topic, payload)
   end
+
   @doc """
   Same as `subscribe_and_join/4`, but returns either the socket
   or throws an error.
@@ -286,7 +300,7 @@ defmodule Phoenix.ChannelTest do
       when is_atom(channel) and is_binary(topic) and is_map(payload) do
     case subscribe_and_join(socket, channel, topic, payload) do
       {:ok, _, socket} -> socket
-      {:error, error}  -> raise "could not join channel, got error: #{inspect(error)}"
+      {:error, error} -> raise "could not join channel, got error: #{inspect(error)}"
     end
   end
 
@@ -294,16 +308,17 @@ defmodule Phoenix.ChannelTest do
   def subscribe_and_join(%Socket{} = socket, topic) when is_binary(topic) do
     subscribe_and_join(socket, topic, %{})
   end
+
   @doc "See `subscribe_and_join/4`."
   def subscribe_and_join(%Socket{} = socket, topic, payload)
       when is_binary(topic) and is_map(payload) do
-
     {channel, opts} = match_topic_to_channel!(socket, topic)
 
     socket
     |> with_opts(opts)
     |> subscribe_and_join(channel, topic, payload)
   end
+
   @doc """
   Subscribes to the given topic and joins the channel
   under the given topic and payload.
@@ -330,10 +345,10 @@ defmodule Phoenix.ChannelTest do
   def join(%Socket{} = socket, topic) when is_binary(topic) do
     join(socket, topic, %{})
   end
+
   @doc "See `join/4`."
   def join(%Socket{} = socket, topic, payload)
       when is_binary(topic) and is_map(payload) do
-
     {channel, opts} = match_topic_to_channel!(socket, topic)
 
     socket
@@ -351,13 +366,13 @@ defmodule Phoenix.ChannelTest do
   """
   def join(%Socket{} = socket, channel, topic, payload \\ %{})
       when is_atom(channel) and is_binary(topic) and is_map(payload) do
-
     ref = System.unique_integer([:positive])
     socket = Transport.build_channel_socket(socket, channel, topic, ref, [])
 
     case Server.join(socket, payload) do
       {:ok, reply, pid} ->
         {:ok, reply, Server.socket(pid)}
+
       {:error, _} = error ->
         error
     end
@@ -374,18 +389,24 @@ defmodule Phoenix.ChannelTest do
       reference
 
   """
-  @spec push(Socket.t, String.t, map()) :: reference()
+  @spec push(Socket.t(), String.t(), map()) :: reference()
   def push(socket, event, payload \\ %{}) do
     ref = make_ref()
-    send(socket.channel_pid,
-         %Message{event: event, topic: socket.topic, ref: ref, payload: __stringify__(payload)})
+
+    send(socket.channel_pid, %Message{
+      event: event,
+      topic: socket.topic,
+      ref: ref,
+      payload: __stringify__(payload)
+    })
+
     ref
   end
 
   @doc """
   Emulates the client leaving the channel.
   """
-  @spec leave(Socket.t) :: reference()
+  @spec leave(Socket.t()) :: reference()
   def leave(socket) do
     push(socket, "phx_leave", %{})
   end
@@ -414,7 +435,7 @@ defmodule Phoenix.ChannelTest do
   """
   def broadcast_from(socket, event, message) do
     %{pubsub_server: pubsub_server, topic: topic, transport_pid: transport_pid} = socket
-    Server.broadcast_from pubsub_server, transport_pid, topic, event, message
+    Server.broadcast_from(pubsub_server, transport_pid, topic, event, message)
   end
 
   @doc """
@@ -422,7 +443,7 @@ defmodule Phoenix.ChannelTest do
   """
   def broadcast_from!(socket, event, message) do
     %{pubsub_server: pubsub_server, topic: topic, transport_pid: transport_pid} = socket
-    Server.broadcast_from! pubsub_server, transport_pid, topic, event, message
+    Server.broadcast_from!(pubsub_server, transport_pid, topic, event, message)
   end
 
   @doc """
@@ -457,9 +478,8 @@ defmodule Phoenix.ChannelTest do
   """
   defmacro assert_push(event, payload, timeout \\ 100) do
     quote do
-      assert_receive %Phoenix.Socket.Message{
-                        event: unquote(event),
-                        payload: unquote(payload)}, unquote(timeout)
+      assert_receive %Phoenix.Socket.Message{event: unquote(event), payload: unquote(payload)},
+                     unquote(timeout)
     end
   end
 
@@ -476,9 +496,8 @@ defmodule Phoenix.ChannelTest do
   """
   defmacro refute_push(event, payload, timeout \\ 100) do
     quote do
-      refute_receive %Phoenix.Socket.Message{
-                        event: unquote(event),
-                        payload: unquote(payload)}, unquote(timeout)
+      refute_receive %Phoenix.Socket.Message{event: unquote(event), payload: unquote(payload)},
+                     unquote(timeout)
     end
   end
 
@@ -499,10 +518,13 @@ defmodule Phoenix.ChannelTest do
   defmacro assert_reply(ref, status, payload \\ Macro.escape(%{}), timeout \\ 100) do
     quote do
       ref = unquote(ref)
+
       assert_receive %Phoenix.Socket.Reply{
-                        ref: ^ref,
-                        status: unquote(status),
-                        payload: unquote(payload)}, unquote(timeout)
+                       ref: ^ref,
+                       status: unquote(status),
+                       payload: unquote(payload)
+                     },
+                     unquote(timeout)
     end
   end
 
@@ -520,10 +542,13 @@ defmodule Phoenix.ChannelTest do
   defmacro refute_reply(ref, status, payload \\ Macro.escape(%{}), timeout \\ 100) do
     quote do
       ref = unquote(ref)
+
       refute_receive %Phoenix.Socket.Reply{
-                        ref: ^ref,
-                        status: unquote(status),
-                        payload: unquote(payload)}, unquote(timeout)
+                       ref: ^ref,
+                       status: unquote(status),
+                       payload: unquote(payload)
+                     },
+                     unquote(timeout)
     end
   end
 
@@ -546,8 +571,8 @@ defmodule Phoenix.ChannelTest do
   """
   defmacro assert_broadcast(event, payload, timeout \\ 100) do
     quote do
-      assert_receive %Phoenix.Socket.Broadcast{event: unquote(event),
-                                               payload: unquote(payload)}, unquote(timeout)
+      assert_receive %Phoenix.Socket.Broadcast{event: unquote(event), payload: unquote(payload)},
+                     unquote(timeout)
     end
   end
 
@@ -563,15 +588,15 @@ defmodule Phoenix.ChannelTest do
   """
   defmacro refute_broadcast(event, payload, timeout \\ 100) do
     quote do
-      refute_receive %Phoenix.Socket.Broadcast{event: unquote(event),
-                                               payload: unquote(payload)}, unquote(timeout)
+      refute_receive %Phoenix.Socket.Broadcast{event: unquote(event), payload: unquote(payload)},
+                     unquote(timeout)
     end
   end
 
   defp match_topic_to_channel!(socket, topic) do
     unless socket.handler do
       raise """
-      No socket handler found to lookup channel for topic #{inspect topic}.
+      No socket handler found to lookup channel for topic #{inspect(topic)}.
       Use `connect/2` when calling `subscribe_and_join` without a channel, for example:
 
           {:ok, socket} = connect(UserSocket, %{})
@@ -581,20 +606,16 @@ defmodule Phoenix.ChannelTest do
 
     case socket.handler.__channel__(topic, socket.transport_name) do
       {channel, opts} when is_atom(channel) -> {channel, opts}
-      _ -> raise "no channel found for topic #{inspect topic} in #{inspect socket.handler}"
+      _ -> raise "no channel found for topic #{inspect(topic)} in #{inspect(socket.handler)}"
     end
   end
 
   @doc false
-  def __stringify__(%{__struct__: _} = struct),
-    do: struct
-  def __stringify__(%{} = params),
-    do: Enum.into(params, %{}, &stringify_kv/1)
-  def __stringify__(other),
-    do: other
+  def __stringify__(%{__struct__: _} = struct), do: struct
+  def __stringify__(%{} = params), do: Enum.into(params, %{}, &stringify_kv/1)
+  def __stringify__(other), do: other
 
-  defp stringify_kv({k, v}),
-    do: {to_string(k), __stringify__(v)}
+  defp stringify_kv({k, v}), do: {to_string(k), __stringify__(v)}
 
   defp with_opts(%Socket{} = socket, opts) do
     %Socket{socket | assigns: Map.merge(socket.assigns, opts[:assigns] || %{})}

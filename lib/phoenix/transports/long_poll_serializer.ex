@@ -30,7 +30,9 @@ defmodule Phoenix.Transports.LongPollSerializer do
       payload: %{status: reply.status, response: reply.payload}
     }
   end
+
   defp to_msg(%Message{} = msg), do: msg
+
   defp to_msg(%Broadcast{} = bcast) do
     %Message{topic: bcast.topic, event: bcast.event, payload: bcast.payload}
   end

@@ -103,26 +103,33 @@ defmodule Phoenix.Presence do
   """
   alias Phoenix.Socket.Broadcast
 
-  @type presences :: %{ String.t => %{metas: [map()]}}
-  @type presence :: %{key: String.t, meta: map()}
-  @type topic :: String.t
+  @type presences :: %{String.t() => %{metas: [map()]}}
+  @type presence :: %{key: String.t(), meta: map()}
+  @type topic :: String.t()
 
-  @callback start_link(Keyword.t) :: {:ok, pid()} | {:error, reason :: term()} :: :ignore
-  @callback init(Keyword.t) :: {:ok, pid()} | {:error, reason :: term}
-  @callback track(Phoenix.Socket.t, key :: String.t, meta :: map()) :: {:ok, binary()} | {:error, reason :: term()}
-  @callback track(pid, topic, key :: String.t, meta :: map()) :: {:ok, binary()} | {:error, reason :: term()}
-  @callback untrack(Phoenix.Socket.t, key :: String.t) :: :ok
-  @callback untrack(pid, topic, key :: String.t) :: :ok
-  @callback update(Phoenix.Socket.t, key :: String.t, meta :: map() | (map() -> map())) :: {:ok, binary()} | {:error, reason :: term()}
-  @callback update(pid, topic, key :: String.t, meta :: map() | (map() -> map())) :: {:ok, binary()} | {:error, reason :: term()}
+  @callback start_link(Keyword.t()) :: {:ok, pid()} | {:error, reason :: term()} :: :ignore
+  @callback init(Keyword.t()) :: {:ok, pid()} | {:error, reason :: term}
+  @callback track(Phoenix.Socket.t(), key :: String.t(), meta :: map()) ::
+              {:ok, binary()} | {:error, reason :: term()}
+  @callback track(pid, topic, key :: String.t(), meta :: map()) ::
+              {:ok, binary()} | {:error, reason :: term()}
+  @callback untrack(Phoenix.Socket.t(), key :: String.t()) :: :ok
+  @callback untrack(pid, topic, key :: String.t()) :: :ok
+  @callback update(Phoenix.Socket.t(), key :: String.t(), meta :: map() | (map() -> map())) ::
+              {:ok, binary()} | {:error, reason :: term()}
+  @callback update(pid, topic, key :: String.t(), meta :: map() | (map() -> map())) ::
+              {:ok, binary()} | {:error, reason :: term()}
   @callback fetch(topic, presences) :: presences
   @callback list(topic) :: presences
-  @callback handle_diff(%{topic => {joins :: presences, leaves :: presences}}, state :: term) :: {:ok, state :: term}
+  @callback handle_diff(%{topic => {joins :: presences, leaves :: presences}}, state :: term) :: {
+              :ok,
+              state :: term
+            }
 
   defmacro __using__(opts) do
     quote do
       @opts unquote(opts)
-      @otp_app @opts[:otp_app] || raise "presence expects :otp_app to be given"
+      @otp_app @opts[:otp_app] || raise("presence expects :otp_app to be given")
       @behaviour unquote(__MODULE__)
       @task_supervisor Module.concat(__MODULE__, TaskSupervisor)
 
@@ -133,14 +140,21 @@ defmodule Phoenix.Presence do
 
       def init(opts) do
         server = Keyword.fetch!(opts, :pubsub_server)
-        {:ok, %{pubsub_server: server,
-                node_name: Phoenix.PubSub.node_name(server),
-                task_sup: @task_supervisor}}
+
+        {
+          :ok,
+          %{
+            pubsub_server: server,
+            node_name: Phoenix.PubSub.node_name(server),
+            task_sup: @task_supervisor
+          }
+        }
       end
 
       def track(%Phoenix.Socket{} = socket, key, meta) do
         track(socket.channel_pid, socket.topic, key, meta)
       end
+
       def track(pid, topic, key, meta) do
         Phoenix.Tracker.track(__MODULE__, pid, topic, key, meta)
       end
@@ -148,6 +162,7 @@ defmodule Phoenix.Presence do
       def untrack(%Phoenix.Socket{} = socket, key) do
         untrack(socket.channel_pid, socket.topic, key)
       end
+
       def untrack(pid, topic, key) do
         Phoenix.Tracker.untrack(__MODULE__, pid, topic, key)
       end
@@ -155,6 +170,7 @@ defmodule Phoenix.Presence do
       def update(%Phoenix.Socket{} = socket, key, meta) do
         update(socket.channel_pid, socket.topic, key, meta)
       end
+
       def update(pid, topic, key, meta) do
         Phoenix.Tracker.update(__MODULE__, pid, topic, key, meta)
       end
@@ -162,14 +178,20 @@ defmodule Phoenix.Presence do
       def fetch(_topic, presences), do: presences
 
       def list(%Phoenix.Socket{topic: topic}), do: list(topic)
+
       def list(topic) do
         Phoenix.Presence.list(__MODULE__, topic)
       end
 
       def handle_diff(diff, state) do
-        Phoenix.Presence.handle_diff(__MODULE__,
-          diff, state.node_name, state.pubsub_server, state.task_sup
+        Phoenix.Presence.handle_diff(
+          __MODULE__,
+          diff,
+          state.node_name,
+          state.pubsub_server,
+          state.task_sup
         )
+
         {:ok, state}
       end
 
@@ -180,6 +202,7 @@ defmodule Phoenix.Presence do
   @doc false
   def start_link(module, otp_app, task_supervisor, opts) do
     import Supervisor.Spec
+
     opts =
       opts
       |> Keyword.merge(Application.get_env(otp_app, module) || [])
@@ -189,6 +212,7 @@ defmodule Phoenix.Presence do
       supervisor(Task.Supervisor, [[name: task_supervisor]]),
       worker(Phoenix.Tracker, [module, opts, opts])
     ]
+
     Supervisor.start_link(children, strategy: :one_for_one)
   end
 
@@ -196,10 +220,15 @@ defmodule Phoenix.Presence do
   def handle_diff(module, diff, node_name, pubsub_server, sup_name) do
     Task.Supervisor.start_child(sup_name, fn ->
       for {topic, {joins, leaves}} <- diff do
-        msg = %Broadcast{topic: topic, event: "presence_diff", payload: %{
-          joins: module.fetch(topic, group(joins)),
-          leaves: module.fetch(topic, group(leaves))
-        }}
+        msg = %Broadcast{
+          topic: topic,
+          event: "presence_diff",
+          payload: %{
+            joins: module.fetch(topic, group(joins)),
+            leaves: module.fetch(topic, group(leaves))
+          }
+        }
+
         Phoenix.PubSub.direct_broadcast!(node_name, pubsub_server, topic, msg)
       end
     end)
@@ -244,9 +273,9 @@ defmodule Phoenix.Presence do
     presences
     |> Enum.reverse()
     |> Enum.reduce(%{}, fn {key, meta}, acc ->
-      Map.update(acc, to_string(key), %{metas: [meta]}, fn %{metas: metas} ->
-        %{metas: [meta | metas]}
-      end)
-    end)
+         Map.update(acc, to_string(key), %{metas: [meta]}, fn %{metas: metas} ->
+           %{metas: [meta | metas]}
+         end)
+       end)
   end
 end

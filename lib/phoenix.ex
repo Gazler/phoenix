@@ -35,7 +35,7 @@ defmodule Phoenix do
   @doc false
   def start(_type, _args) do
     # Warm up caches
-    _ = Phoenix.Template.engines
+    _ = Phoenix.Template.engines()
     _ = Phoenix.Template.format_encoder("index.html")
 
     # Configure proper system flags from Phoenix only

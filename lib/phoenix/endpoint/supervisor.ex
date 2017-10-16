@@ -15,6 +15,7 @@ defmodule Phoenix.Endpoint.Supervisor do
       {:ok, _} = ok ->
         warmup(mod)
         ok
+
       {:error, _} = error ->
         error
     end
@@ -26,12 +27,16 @@ defmodule Phoenix.Endpoint.Supervisor do
   # dependent on the module name, so we should consider enabling this
   # once we move to Firenest.
   def init({otp_app, mod}) do
-    id = :crypto.strong_rand_bytes(16) |> Base.encode64
+    id = :crypto.strong_rand_bytes(16) |> Base.encode64()
 
     conf =
       case mod.init(:supervisor, [endpoint_id: id] ++ config(otp_app, mod)) do
-        {:ok, conf} -> conf
-        other -> raise ArgumentError, "expected init/2 callback to return {:ok, config}, got: #{inspect other}"
+        {:ok, conf} ->
+          conf
+
+        other ->
+          raise ArgumentError,
+                "expected init/2 callback to return {:ok, config}, got: #{inspect(other)}"
       end
 
     server? = server?(conf)
@@ -42,9 +47,8 @@ defmodule Phoenix.Endpoint.Supervisor do
 
     children =
       pubsub_children(mod, conf) ++
-      config_children(mod, conf, otp_app) ++
-      server_children(mod, conf, server?) ++
-      watcher_children(mod, conf, server?)
+        config_children(mod, conf, otp_app) ++
+        server_children(mod, conf, server?) ++ watcher_children(mod, conf, server?)
 
     supervise(children, strategy: :one_for_one)
   end
@@ -71,8 +75,11 @@ defmodule Phoenix.Endpoint.Supervisor do
     if server? do
       server = Module.concat(mod, "Server")
       long_poll = Module.concat(mod, "LongPoll.Supervisor")
-      [supervisor(Phoenix.Endpoint.Handler, [conf[:otp_app], mod, [name: server]]),
-       supervisor(Phoenix.Transports.LongPoll.Supervisor, [[name: long_poll]])]
+
+      [
+        supervisor(Phoenix.Endpoint.Handler, [conf[:otp_app], mod, [name: server]]),
+        supervisor(Phoenix.Transports.LongPoll.Supervisor, [[name: long_poll]])
+      ]
     else
       []
     end
@@ -81,13 +88,18 @@ defmodule Phoenix.Endpoint.Supervisor do
   defp watcher_children(_mod, conf, server?) do
     if server? do
       Enum.map(conf[:watchers], fn {cmd, args} ->
-        worker(Phoenix.Endpoint.Watcher, watcher_args(cmd, args),
-               id: {cmd, args}, restart: :transient)
+        worker(
+          Phoenix.Endpoint.Watcher,
+          watcher_args(cmd, args),
+          id: {cmd, args},
+          restart: :transient
+        )
       end)
     else
       []
     end
   end
+
   defp watcher_args(cmd, cmd_args) do
     {args, opts} = Enum.split_while(cmd_args, &is_binary(&1))
     [cmd, args, opts]
@@ -108,37 +120,40 @@ defmodule Phoenix.Endpoint.Supervisor do
     |> config(endpoint)
     |> server?()
   end
+
   def server?(conf) when is_list(conf) do
     Keyword.get(conf, :server, Application.get_env(:phoenix, :serve_endpoints, false))
   end
 
   defp defaults(otp_app, module) do
-    [otp_app: otp_app,
-     handler: Phoenix.Endpoint.CowboyHandler,
+    [
+      otp_app: otp_app,
+      handler: Phoenix.Endpoint.CowboyHandler,
 
-     # Compile-time config
-     code_reloader: false,
-     debug_errors: false,
-     render_errors: [view: render_errors(module), accepts: ~w(html), layout: false],
+      # Compile-time config
+      code_reloader: false,
+      debug_errors: false,
+      render_errors: [view: render_errors(module), accepts: ~w(html), layout: false],
 
-     # Runtime config
-     cache_static_manifest: nil,
-     check_origin: true,
-     http: false,
-     https: false,
-     reloadable_compilers: [:gettext, :phoenix, :elixir],
-     secret_key_base: nil,
-     static_url: nil,
-     url: [host: "localhost", path: "/"],
+      # Runtime config
+      cache_static_manifest: nil,
+      check_origin: true,
+      http: false,
+      https: false,
+      reloadable_compilers: [:gettext, :phoenix, :elixir],
+      secret_key_base: nil,
+      static_url: nil,
+      url: [host: "localhost", path: "/"],
 
-     # Supervisor config
-     pubsub: [pool_size: 1],
-     watchers: []]
+      # Supervisor config
+      pubsub: [pool_size: 1],
+      watchers: []
+    ]
   end
 
   defp render_errors(module) do
     module
-    |> Module.split
+    |> Module.split()
     |> Enum.at(0)
     |> Module.concat("ErrorView")
   end
@@ -201,13 +216,16 @@ defmodule Phoenix.Endpoint.Supervisor do
   the Phoenix.Config layer knows how to cache it.
   """
   def struct_url(endpoint) do
-    url    = endpoint.config(:url)
+    url = endpoint.config(:url)
     struct = build_url(endpoint, url)
-    {:cache,
+
+    {
+      :cache,
       case url[:path] || "/" do
-        "/"  -> struct
+        "/" -> struct
         path -> %{struct | path: path}
-      end}
+      end
+    }
   end
 
   defp build_url(endpoint, url) do
@@ -219,15 +237,17 @@ defmodule Phoenix.Endpoint.Supervisor do
       cond do
         https ->
           {"https", https[:port]}
+
         http ->
           {"http", http[:port]}
+
         true ->
           {"http", 80}
       end
 
     scheme = url[:scheme] || scheme
-    host   = host_to_binary(url[:host] || "localhost")
-    port   = port_to_integer(url[:port] || port)
+    host = host_to_binary(url[:host] || "localhost")
+    port = port_to_integer(url[:port] || port)
 
     %URI{scheme: scheme, port: port, host: host}
   end
@@ -295,6 +315,7 @@ defmodule Phoenix.Endpoint.Supervisor do
         {:cache, "/" <> value <> "?vsn=d"}
       end)
     end
+
     endpoint.static_path("/")
   end
 
@@ -305,14 +326,16 @@ defmodule Phoenix.Endpoint.Supervisor do
       if File.exists?(outer) do
         manifest =
           outer
-          |> File.read!
-          |> Poison.decode!
+          |> File.read!()
+          |> Poison.decode!()
 
         manifest["latest"]
       else
-        Logger.error "Could not find static manifest at #{inspect outer}. " <>
-                     "Run \"mix phx.digest\" after building your static files " <>
-                     "or remove the configuration from \"config/prod.exs\"."
+        Logger.error(
+          "Could not find static manifest at #{inspect(outer)}. " <>
+            "Run \"mix phx.digest\" after building your static files " <>
+            "or remove the configuration from \"config/prod.exs\"."
+        )
       end
     else
       %{}

@@ -56,10 +56,14 @@ defmodule Phoenix.Transports.WebSocket do
   @behaviour Phoenix.Socket.Transport
 
   def default_config() do
-    [serializer: [{Phoenix.Transports.WebSocketSerializer, "~> 1.0.0"},
-                  {Phoenix.Transports.V2.WebSocketSerializer, "~> 2.0.0"}],
-     timeout: 60_000,
-     transport_log: false]
+    [
+      serializer: [
+        {Phoenix.Transports.WebSocketSerializer, "~> 1.0.0"},
+        {Phoenix.Transports.V2.WebSocketSerializer, "~> 2.0.0"}
+      ],
+      timeout: 60000,
+      transport_log: false
+    ]
   end
 
   ## Callbacks
@@ -83,16 +87,18 @@ defmodule Phoenix.Transports.WebSocket do
 
     case conn do
       %{halted: false} = conn ->
-        params     = conn.params
+        params = conn.params
         serializer = Keyword.fetch!(opts, :serializer)
 
         case Transport.connect(endpoint, handler, transport, __MODULE__, serializer, params) do
           {:ok, socket} ->
             {:ok, conn, {__MODULE__, {socket, opts}}}
+
           :error ->
             send_resp(conn, 403, "")
             {:error, conn}
         end
+
       %{halted: true} = conn ->
         {:error, conn}
     end
@@ -110,10 +116,11 @@ defmodule Phoenix.Transports.WebSocket do
 
     if socket.id, do: socket.endpoint.subscribe(socket.id, link: true)
 
-    {:ok, %{socket: socket,
-            channels: %{},
-            channels_inverse: %{},
-            serializer: socket.serializer}, timeout}
+    {
+      :ok,
+      %{socket: socket, channels: %{}, channels_inverse: %{}, serializer: socket.serializer},
+      timeout
+    }
   end
 
   @doc false
@@ -123,10 +130,13 @@ defmodule Phoenix.Transports.WebSocket do
     case Transport.dispatch(msg, state.channels, state.socket) do
       :noreply ->
         {:ok, state}
+
       {:reply, reply_msg} ->
         encode_reply(reply_msg, state)
+
       {:joined, channel_pid, reply_msg} ->
         encode_reply(reply_msg, put(state, msg.topic, msg.ref, channel_pid))
+
       {:error, _reason, error_reply_msg} ->
         encode_reply(error_reply_msg, state)
     end
@@ -135,7 +145,9 @@ defmodule Phoenix.Transports.WebSocket do
   @doc false
   def ws_info({:EXIT, channel_pid, reason}, state) do
     case Map.get(state.channels_inverse, channel_pid) do
-      nil   -> {:ok, state}
+      nil ->
+        {:ok, state}
+
       {topic, join_ref} ->
         new_state = delete(state, topic, channel_pid)
         encode_reply(Transport.on_exit_message(topic, join_ref, reason), new_state)
@@ -179,15 +191,22 @@ defmodule Phoenix.Transports.WebSocket do
   end
 
   defp put(state, topic, join_ref, channel_pid) do
-    %{state | channels: Map.put(state.channels, topic, channel_pid),
-              channels_inverse: Map.put(state.channels_inverse, channel_pid, {topic, join_ref})}
+    %{
+      state
+      | channels: Map.put(state.channels, topic, channel_pid),
+        channels_inverse: Map.put(state.channels_inverse, channel_pid, {topic, join_ref})
+    }
   end
 
   defp delete(state, topic, channel_pid) do
     case Map.fetch(state.channels, topic) do
       {:ok, ^channel_pid} ->
-        %{state | channels: Map.delete(state.channels, topic),
-                  channels_inverse: Map.delete(state.channels_inverse, channel_pid)}
+        %{
+          state
+          | channels: Map.delete(state.channels, topic),
+            channels_inverse: Map.delete(state.channels_inverse, channel_pid)
+        }
+
       {:ok, _newer_pid} ->
         %{state | channels_inverse: Map.delete(state.channels_inverse, channel_pid)}
     end

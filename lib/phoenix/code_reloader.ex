@@ -52,6 +52,7 @@ defmodule Phoenix.CodeReloader do
     case opts[:reloader].(conn.private.phoenix_endpoint) do
       :ok ->
         conn
+
       {:error, output} ->
         conn
         |> put_resp_content_type("text/html")
@@ -252,8 +253,8 @@ defmodule Phoenix.CodeReloader do
 
   defp format_output(output) do
     output
-    |> String.trim
-    |> Plug.HTML.html_escape
+    |> String.trim()
+    |> Plug.HTML.html_escape()
   end
 
   defp get_error_details(output) do

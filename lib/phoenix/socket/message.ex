@@ -26,11 +26,11 @@ defmodule Phoenix.Socket.Message do
         event: Map.fetch!(map, "event"),
         payload: Map.fetch!(map, "payload"),
         ref: Map.fetch!(map, "ref"),
-        join_ref: Map.get(map, "join_ref"),
+        join_ref: Map.get(map, "join_ref")
       }
     rescue
       err in [KeyError] ->
-        raise Phoenix.Socket.InvalidMessageError, message: "missing key #{inspect err.key}"
+        raise Phoenix.Socket.InvalidMessageError, message: "missing key #{inspect(err.key)}"
     end
   end
 end

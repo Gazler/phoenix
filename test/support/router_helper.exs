@@ -10,11 +10,11 @@ defmodule RouterHelper do
   import Plug.Test
 
   @session Plug.Session.init(
-    store: :cookie,
-    key: "_app",
-    encryption_salt: "yadayada",
-    signing_salt: "yadayada"
-  )
+             store: :cookie,
+             key: "_app",
+             encryption_salt: "yadayada",
+             signing_salt: "yadayada"
+           )
 
   defmacro __using__(_) do
     quote do
@@ -33,13 +33,13 @@ defmodule RouterHelper do
   def call(router, verb, path, params \\ nil, script_name \\ []) do
     verb
     |> conn(path, params)
-    |> Plug.Conn.fetch_query_params
+    |> Plug.Conn.fetch_query_params()
     |> Map.put(:script_name, script_name)
     |> router.call(router.init([]))
   end
 
   def action(controller, verb, action, params \\ nil) do
-    conn = conn(verb, "/", params) |> Plug.Conn.fetch_query_params
+    conn = conn(verb, "/", params) |> Plug.Conn.fetch_query_params()
     controller.call(conn, controller.init(action))
   end
 end

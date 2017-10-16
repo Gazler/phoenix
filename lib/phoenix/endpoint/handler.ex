@@ -14,7 +14,8 @@ defmodule Phoenix.Endpoint.Handler do
   @doc """
   Provides a server child specification to be started under the endpoint.
   """
-  @callback child_spec(scheme :: atom, endpoint :: module, config :: Keyword.t) :: Supervisor.Spec.spec
+  @callback child_spec(scheme :: atom, endpoint :: module, config :: Keyword.t()) ::
+              Supervisor.Spec.spec()
 
   use Supervisor
   require Logger
@@ -26,12 +27,13 @@ defmodule Phoenix.Endpoint.Handler do
 
   @doc false
   def init({otp_app, endpoint}) do
-    handler  = endpoint.config(:handler)
+    handler = endpoint.config(:handler)
+
     children =
-      for {scheme, port} <- [http: 4000, https: 4040],
-          config = endpoint.config(scheme) do
+      for {scheme, port} <- [http: 4000, https: 4040], config = endpoint.config(scheme) do
         handler.child_spec(scheme, endpoint, default(config, otp_app, port))
       end
+
     supervise(children, strategy: :one_for_one)
   end
 
@@ -52,8 +54,10 @@ defmodule Phoenix.Endpoint.Handler do
   defp keyword_item?(_), do: false
 
   # TODO v1.4: Deprecate {:system, env_var}
-  defp to_port(nil), do: raise "server can't start because :port in config is nil, please use a valid port number"
-  defp to_port(binary)  when is_binary(binary), do: String.to_integer(binary)
+  defp to_port(nil),
+    do: raise("server can't start because :port in config is nil, please use a valid port number")
+
+  defp to_port(binary) when is_binary(binary), do: String.to_integer(binary)
   defp to_port(integer) when is_integer(integer), do: integer
   defp to_port({:system, env_var}), do: to_port(System.get_env(env_var))
 end

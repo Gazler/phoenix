@@ -16,11 +16,11 @@ defmodule Phoenix.Router.ResourceTest do
     use Phoenix.Router
 
     resources "/account", Api.GenericController, alias: Api, singleton: true do
-      resources "/comments", GenericController
-      resources "/session", GenericController, except: [:delete], singleton: true
+      resources("/comments", GenericController)
+      resources("/session", GenericController, except: [:delete], singleton: true)
     end
 
-    resources "/session", Api.GenericController, only: [:show], singleton: true
+    resources("/session", Api.GenericController, only: [:show], singleton: true)
   end
 
   setup do

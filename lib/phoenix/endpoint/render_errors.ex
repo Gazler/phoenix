@@ -28,7 +28,7 @@ defmodule Phoenix.Endpoint.RenderErrors do
   @doc false
   defmacro __before_compile__(_) do
     quote location: :keep do
-      defoverridable [call: 2]
+      defoverridable call: 2
 
       def call(conn, opts) do
         try do
@@ -48,7 +48,7 @@ defmodule Phoenix.Endpoint.RenderErrors do
   end
 
   def __catch__(conn, kind, reason, opts) do
-    __catch__(conn, kind, reason, System.stacktrace, opts)
+    __catch__(conn, kind, reason, System.stacktrace(), opts)
   end
 
   defp __catch__(_conn, :error, %Phoenix.Router.NoRouteError{} = reason, stack, opts) do
@@ -83,11 +83,11 @@ defmodule Phoenix.Endpoint.RenderErrors do
   defp maybe_render(conn, kind, reason, stack, opts) do
     receive do
       @already_sent ->
-        send self(), @already_sent
+        send(self(), @already_sent)
         %Plug.Conn{conn | state: :sent}
     after
       0 ->
-        render conn, kind, reason, stack, opts
+        render(conn, kind, reason, stack, opts)
     end
   end
 
@@ -106,14 +106,18 @@ defmodule Phoenix.Endpoint.RenderErrors do
   rescue
     e in Phoenix.NotAcceptableError ->
       fallback_format = Keyword.fetch!(opts, :accepts) |> List.first()
-      Logger.warn("Could not render errors due to #{Exception.message(e)}. " <>
-                  "Errors will be rendered using the first accepted format #{inspect fallback_format} as fallback. " <>
-                  "Please customize the :accepts option under the :render_errors configuration " <>
-                  "in your endpoint if you want to support other formats or choose another fallback")
+
+      Logger.warn(
+        "Could not render errors due to #{Exception.message(e)}. " <>
+          "Errors will be rendered using the first accepted format #{inspect(fallback_format)} as fallback. " <>
+          "Please customize the :accepts option under the :render_errors configuration " <>
+          "in your endpoint if you want to support other formats or choose another fallback"
+      )
+
       put_format(conn, fallback_format)
   end
 
   defp status(:error, error), do: Plug.Exception.status(error)
   defp status(:throw, _throw), do: 500
-  defp status(:exit, _exit),   do: 500
+  defp status(:exit, _exit), do: 500
 end

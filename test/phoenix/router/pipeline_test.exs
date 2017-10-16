@@ -4,7 +4,7 @@
 defmodule Phoenix.Router.PipelineTest.SampleController do
   use Phoenix.Controller
   def index(conn, _params), do: text(conn, "index")
-  def crash(_conn, _params), do: raise "crash!"
+  def crash(_conn, _params), do: raise("crash!")
 
   # Let's also define a custom plug that we will
   # use in our router as part of a pipeline
@@ -21,52 +21,52 @@ defmodule Phoenix.Router.PipelineTest.Router do
   import SampleController, only: [noop_plug: 2]
 
   pipeline :browser do
-    plug :put_assign, "browser"
+    plug(:put_assign, "browser")
   end
 
   pipeline :api do
-    plug :put_assign, "api"
+    plug(:put_assign, "api")
   end
 
   pipeline :params do
-    plug :put_params
+    plug(:put_params)
   end
 
   pipeline :halt do
-    plug :stop
+    plug(:stop)
   end
 
   pipeline :halt_again do
-    plug :stop
+    plug(:stop)
   end
 
-  get "/root", SampleController, :index
-  put "/root/:id", SampleController, :index
-  get "/route_that_crashes", SampleController, :crash
+  get("/root", SampleController, :index)
+  put("/root/:id", SampleController, :index)
+  get("/route_that_crashes", SampleController, :crash)
 
   scope "/browser" do
-    pipe_through :browser
-    get "/root", SampleController, :index
+    pipe_through(:browser)
+    get("/root", SampleController, :index)
 
     scope "/api" do
-      pipe_through :api
-      get "/root", SampleController, :index
+      pipe_through(:api)
+      get("/root", SampleController, :index)
     end
 
     scope "/:id" do
-      pipe_through :params
-      get "/", SampleController, :index
+      pipe_through(:params)
+      get("/", SampleController, :index)
     end
   end
 
   scope "/browser-api" do
-    pipe_through [:browser, :api]
-    get "/root", SampleController, :index
+    pipe_through([:browser, :api])
+    get("/root", SampleController, :index)
   end
 
   scope "/stop" do
-    pipe_through [:noop_plug, :halt, :halt_again]
-    get "/", SampleController, :index
+    pipe_through([:noop_plug, :halt, :halt_again])
+    get("/", SampleController, :index)
   end
 
   defp stop(conn, _) do
@@ -74,11 +74,11 @@ defmodule Phoenix.Router.PipelineTest.Router do
   end
 
   defp put_assign(conn, value) do
-    assign conn, :stack, value
+    assign(conn, :stack, value)
   end
 
   defp put_params(conn, _) do
-    assign conn, :params, conn.params
+    assign(conn, :params, conn.params)
   end
 end
 
@@ -139,10 +139,12 @@ defmodule Phoenix.Router.PipelineTest do
     assert_raise ArgumentError, ~r{duplicate pipe_through for :browser}, fn ->
       defmodule DupPipeThroughRouter do
         use Phoenix.Router, otp_app: :phoenix
+
         pipeline :browser do
         end
+
         scope "/" do
-          pipe_through [:browser, :auth, :browser]
+          pipe_through([:browser, :auth, :browser])
         end
       end
     end
@@ -150,12 +152,15 @@ defmodule Phoenix.Router.PipelineTest do
     assert_raise ArgumentError, ~r{duplicate pipe_through for :browser}, fn ->
       defmodule DupScopedPipeThroughRouter do
         use Phoenix.Router, otp_app: :phoenix
+
         pipeline :browser do
         end
+
         scope "/" do
-          pipe_through [:browser]
+          pipe_through([:browser])
+
           scope "/nested" do
-            pipe_through [:browser]
+            pipe_through([:browser])
           end
         end
       end
