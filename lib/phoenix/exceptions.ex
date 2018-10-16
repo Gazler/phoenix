@@ -43,18 +43,27 @@ defmodule Phoenix.ActionClauseError do
     FunctionClauseError.__struct__
     |> Map.keys()
     |> Kernel.--([:__exception__, :__struct__])
-    |>Kernel.++([plug_status: 400])
 
   defexception exception_keys
 
   def message(exception) do
-    %{module: module, function: function, arity: arity} = exception
-    formatted = Exception.format_mfa(module, function, arity)
-    blamed = FunctionClauseError.blame(exception, &inspect/1, &blame_match/2)
-    "no controller action clause matching in #{formatted}" <> blamed
+    exception
+    |> Map.put(:__struct__, FunctionClauseError)
+    |> FunctionClauseError.message()
   end
 
-  defp blame_match(%{match?: true, node: node}, _), do: Macro.to_string(node)
-  defp blame_match(%{match?: false, node: node}, _), do: "-" <> Macro.to_string(node) <> "-"
-  defp blame_match(_, string), do: string
+  def blame(exception, stacktrace) do
+    {exception, stacktrace} =
+      exception
+      |> Map.put(:__struct__, FunctionClauseError)
+      |> FunctionClauseError.blame(exception, stacktrace)
+
+    exception = Map.put(exception, :__struct__, __MODULE__)
+
+    {exception, stacktrace}
+  end
+end
+
+defimpl Plug.Exception, for: Phoenix.ActionClauseError do
+  def status(_), do: 400
 end
