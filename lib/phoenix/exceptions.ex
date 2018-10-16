@@ -39,21 +39,77 @@ defmodule Phoenix.MissingParamError do
 end
 
 defmodule Phoenix.ActionClauseError do
-  defexception [message: nil, plug_status: 400]
+  defexception [:controller, :action, :arity, :args, :params, :message, :kind, :clauses, plug_status: 400]
 
-  def exception(opts) do
-    controller = Keyword.fetch!(opts, :controller)
-    action = Keyword.fetch!(opts, :action)
-    params = Keyword.fetch!(opts, :params)
-    msg = """
-    could not find a matching #{inspect controller}.#{action} clause
-    to process request. This typically happens when there is a
-    parameter mismatch but may also happen when any of the other
-    action arguments do not match. The request parameters are:
+  def message(exception) do
+    %{controller: module, action: action, arity: arity} = exception
+    formatted = Exception.format_mfa(module, action, arity)
+    blamed = blame(exception, &inspect/1, &blame_match/2)
+    "no controller action clause matching in #{formatted}" <> blamed
+  end
 
-      #{inspect params}
+  def blame(%{controller: controller, action: action, arity: arity} = exception, stacktrace) do
+    case stacktrace do
+      [{^controller, ^action, args, meta} | rest] when length(args) == arity ->
+        exception =
+          case Exception.blame_mfa(controller, action, args) do
+            {:ok, kind, clauses} -> %{exception | args: args, kind: kind, clauses: clauses}
+            :error -> %{exception | args: args}
+          end
 
-    """
-    %Phoenix.ActionClauseError{message: msg}
+        {exception, [{controller, action, arity, meta} | rest]}
+
+      stacktrace ->
+        {exception, stacktrace}
+    end
+  end
+
+  defp blame_match(%{match?: true, node: node}, _), do: Macro.to_string(node)
+  defp blame_match(%{match?: false, node: node}, _), do: "-" <> Macro.to_string(node) <> "-"
+  defp blame_match(_, string), do: string
+
+  @doc false
+  def blame(%{args: nil}, _, _) do
+    ""
+  end
+
+  def blame(exception, inspect_fun, ast_fun) do
+    %{controller: controller, action: action, arity: arity, kind: kind, args: args, clauses: clauses} = exception
+
+    mfa = Exception.format_mfa(controller, action, arity)
+
+    formatted_args =
+      args
+      |> Enum.with_index(1)
+      |> Enum.map(fn {arg, i} ->
+        ["\n    # ", Integer.to_string(i), "\n    ", pad(inspect_fun.(arg)), "\n"]
+      end)
+
+    formatted_clauses =
+      if clauses do
+        format_clause_fun = fn {args, guards} ->
+          code = Enum.reduce(guards, {action, [], args}, &{:when, [], [&2, &1]})
+          "    #{kind} " <> Macro.to_string(code, ast_fun) <> "\n"
+        end
+
+        top_10 =
+          clauses
+          |> Enum.take(10)
+          |> Enum.map(format_clause_fun)
+
+        [
+          "\nAttempted action clauses (showing #{length(top_10)} out of #{length(clauses)}):",
+          "\n\n",
+          top_10
+        ]
+      else
+        ""
+      end
+
+    "\n\nThe following arguments were given to #{mfa}:\n#{formatted_args}#{formatted_clauses}"
+  end
+
+  defp pad(string) do
+    String.replace(string, "\n", "\n    ")
   end
 end
